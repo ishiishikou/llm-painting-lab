@@ -1,8 +1,8 @@
 {
   "version": 4,
-  "review_round": 6,
+  "review_round": 7,
   "frozen_base_phases": ["silhouette", "light_shadow"],
-  "accepted_bundle_ids": [],
+  "accepted_bundle_ids": ["semantic-eye_band-3189-75"],
   "rejected_bundle_ids": [
     "load-88",
     "micro-0098",
@@ -21,12 +21,17 @@
     "passage-0151",
     "passage-0167",
     "passage-0140",
-    "passage-0161"
+    "passage-0161",
+    "semantic-eye_band-2498-75",
+    "semantic-eye_band-3758-75",
+    "semantic-eye_band-2693-75",
+    "semantic-eye_band-4651-75",
+    "semantic-eye_band-3495-75"
   ],
   "intent_card": {
     "region": "face",
     "focus": "eye_band",
-    "goal": "明暗までの土台に対して、v7で実際に成立していた顔構造の線を大きめの一仕事単位で選び、まず目の高さに顔として読める構造を作る",
+    "goal": "round 6で採用した目周辺passageを残し、反対側の目・眉・鼻根のつながりに意味のあるv7顔構造passageをもう一つだけ選ぶ",
     "candidate_mode": "semantic_passage",
     "candidate_count": 6,
     "source_phases": ["face_structure"],
@@ -35,11 +40,11 @@
     "avoid_brushes": ["line", "mixerBrush", "smudgeBrush", "glaze"],
     "avoid": [
       "座標をAIが直接指定する",
-      "構図用の中心線・目線・口線を儀式として追加する",
-      "1〜数筆しか変化しない候補を延々と評価する",
+      "採用済みpassageと同じ場所を重ね塗りする",
       "白目を記号的に描く",
-      "細線だけで顔を救済する"
+      "細線だけで顔を救済する",
+      "ターバン側へ青い線を漏らす"
     ],
-    "review_note": "round 5のdetail候補A〜Fはすべて変化が小さく、既にface_structureまで凍結した土台へ同じ場所の細線を足すだけになったため全却下。顔構造自体をAIに座標指定させず、light_shadowを土台としてv7の既存face_structureを60〜90筆のsemantic passageで選ぶ方式へ切り替える。"
+    "review_note": "round 6ではBが左側の目周辺へ肌色と影のまとまりを足し、青い境界汚染や白い記号を増やさず、MAEも14.0646から14.0396へ改善したため採用。A/C/D/E/Fは目的位置から外れるか、面の読みを改善しないため却下。"
   }
 }
