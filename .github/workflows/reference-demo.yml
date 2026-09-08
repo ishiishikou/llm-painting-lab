@@ -26,7 +26,7 @@ jobs:
 
       - name: Check implementations and rules
         run: |
-          python -m py_compile tools/reference_to_brush_process.py tools/generate_direction_field_v5.py tools/generate_artifact_cleanup_v6.py tools/generate_observe_act_v7.py tools/render_brush_motion_video.py
+          python -m py_compile tools/reference_to_brush_process.py tools/generate_direction_field_v5.py tools/generate_artifact_cleanup_v6.py tools/generate_observe_act_v7.py tools/generate_observe_act_v7_refined.py tools/render_brush_motion_video.py
           node --check src/brushes.js
           test -s docs/painting-tool-rules.md
           test -s docs/painting-evaluation-rules.md
@@ -47,7 +47,7 @@ jobs:
       - name: Generate observe-act v7 process
         run: |
           mkdir -p artifact/src artifact/checkpoints
-          python tools/generate_observe_act_v7.py reference.jpg \
+          python tools/generate_observe_act_v7_refined.py reference.jpg \
             --output artifact/strokes.generated.json \
             --preview artifact/preview.png \
             --metrics artifact/metrics.json \
@@ -98,8 +98,8 @@ jobs:
           if meta.get('artifact_policy')!='no-hard-rectangular-face-mask-v6': raise SystemExit('v6の顔artifact対策が失われた')
           if artifact['face_role_hard_clip_count']!=0 or artifact['exact_face_bbox_clip_count']!=0: raise SystemExit(f'顔矩形clipが再発: {artifact}')
 
-          if len(decisions)<60: raise SystemExit(f'観察サイクル不足: {len(decisions)}')
-          if len(regions)<3: raise SystemExit(f'観察対象が偏りすぎ: {regions}')
+          if len(decisions)<80: raise SystemExit(f'観察サイクル不足: {len(decisions)}')
+          if len(regions)<4: raise SystemExit(f'観察対象が偏りすぎ: {regions}')
           if len(intents)<3: raise SystemExit(f'判断種別が単調: {intents}')
           if not cycle_strokes or max(cycle_strokes.values())>90: raise SystemExit(f'1回に描きすぎ: {cycle_strokes.most_common(3)}')
           if not loads or max(loads.values())<5: raise SystemExit('同じ絵具を複数筆使う状態がない')
@@ -108,7 +108,7 @@ jobs:
           if phases['detail']>=7000: raise SystemExit('細部の大量一括復元へ戻っている')
           if phases['finish']>=4000: raise SystemExit('仕上げの大量残差修復へ戻っている')
           if len(strokes)>=18000: raise SystemExit('総ストロークが多すぎる')
-          required={'dryBrush':700,'flatBrush':500,'variableBrush':1200,'mixerBrush':100,'glaze':20}
+          required={'dryBrush':700,'flatBrush':900,'variableBrush':1600,'mixerBrush':120,'glaze':20}
           for b,n in required.items():
               if brushes[b]<n: raise SystemExit(f'{b}不足: {brushes[b]} < {n}')
           if any(s.get('brush')=='ellipse' for s in strokes): raise SystemExit('円形スタンプが残っている')
@@ -136,6 +136,8 @@ jobs:
           6工程の名前だけでなく、工程内部を「観察→問題選択→パレットから色を取る→
           一つの局所領域を数筆描く→再観察」の短いサイクルへ変更しています。
           同じpaintLoadIdのストロークは、同じ絵具を筆につけたまま続けて描く1回の作業単位です。
+          v7 refinedでは中間サイズの明暗面を有限パレットで作ってから観察ループへ入り、
+          顔だけへ固執せず全主要部位を一度確認するようにしています。
 
           observation-log.json: 各サイクルの観察・判断・前後スコア
           strokes.generated.json: decisionCycle / paintRun / paintLoadIdを含む描画データ
