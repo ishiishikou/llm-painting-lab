@@ -1,0 +1,22 @@
+{
+  "version": 1,
+  "review_round": 1,
+  "frozen_base_phases": ["silhouette", "light_shadow"],
+  "accepted_bundle_ids": [],
+  "rejected_bundle_ids": [],
+  "intent_card": {
+    "region": "face",
+    "focus": "whole_face",
+    "goal": "大きな顔の面を壊さず、少数の既存ストロークで顔構造を成立させる",
+    "preferred_families": ["plane", "structure"],
+    "source_phases": ["face_structure"],
+    "max_strokes_per_candidate": 7,
+    "avoid_brushes": ["smudgeBrush"],
+    "avoid": [
+      "座標をAIが直接指定する",
+      "白目や口を記号的な線で描く",
+      "細線を大量に追加して似せる",
+      "必要性を見ずにMixerやSmudgeを入れる"
+    ]
+  }
+}
