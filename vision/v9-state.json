@@ -1,6 +1,6 @@
 {
-  "version": 8,
-  "review_round": 12,
+  "version": 9,
+  "review_round": 13,
   "frozen_base_phases": ["silhouette", "light_shadow"],
   "accepted_bundle_ids": [
     "semantic-eye_band-3189-75",
@@ -27,31 +27,32 @@
     }
   ],
   "rejected_bundle_ids": [
-    "semantic-whole_face-2491-210",
-    "semantic-whole_face-3237-210",
-    "semantic-whole_face-4746-210",
-    "semantic-whole_face-3516-210",
-    "semantic-whole_face-5181-210",
-    "semantic-whole_face-3020-210"
+    "semantic-whole_face-2491-90",
+    "semantic-whole_face-2601-90",
+    "semantic-whole_face-2933-90",
+    "semantic-whole_face-5181-90",
+    "semantic-whole_face-2735-90",
+    "semantic-whole_face-2840-90"
   ],
   "intent_card": {
     "region": "face",
-    "focus": "whole_face",
-    "goal": "既存v7の顔構造から、単独でも線として破綻しにくいvariableBrushだけを使い、顔の主要面を追加する。dryBrushの擦れ跡を局所passageとして切り出して黒い傷にしない",
+    "focus": "upper_face",
+    "goal": "青いターバン色や顔外の暗色を混ぜず、v7のclean variableBrushのうち肌色として成立していた線だけで、額・眉・眼窩周辺の面を一仕事追加する",
     "candidate_mode": "semantic_passage",
     "candidate_count": 6,
     "source_phases": ["face_structure"],
     "allow_brushes": ["variableBrush"],
-    "min_strokes_per_candidate": 70,
-    "max_strokes_per_candidate": 110,
+    "color_family": "skin",
+    "min_strokes_per_candidate": 55,
+    "max_strokes_per_candidate": 85,
     "avoid_brushes": ["line", "mixerBrush", "smudgeBrush", "glaze", "dryBrush"],
     "avoid": [
       "座標をAIが直接指定する",
-      "採用済みストロークを再度上塗りする",
-      "dryBrushを局所的な黒い擦れとして足す",
-      "細部工程へ進む前に顔の主要面を諦める",
-      "数値だけで候補を選ぶ"
+      "青や灰色のターバン線を顔へ持ち込む",
+      "暗い擦れ跡で眼窩を作る",
+      "白目を記号として描く",
+      "候補が出たからという理由だけで採用する"
     ],
-    "review_note": "round 11の210筆候補はMAE自体は改善したが、A/Dは頬・顎へ暗い擦れ跡、B/Fはターバン側へ筋状の汚れ、C/Eは顔外側へ過度に作用した。主因は各候補の大半がdryBrushだったこと。6候補すべて却下し、これまで比較的きれいに扱えたvariableBrushの既存線だけを候補資産として使う。"
+    "review_note": "round 12はdryBrushを除いたことで黒い擦れは減ったが、B/Fは依然として青いターバン由来の線を顔候補として含み、A/C/D/Eも外側・下側への作用が中心で顔の読みを大きく改善しなかったため全却下。次は線色そのものもskin-toneに限定し、上顔面だけを見る。"
   }
 }
