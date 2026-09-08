@@ -5,7 +5,7 @@ import math
 import random
 from pathlib import Path
 
-from PIL import Image, ImageDraw
+from PIL import Image, ImageChops, ImageDraw, ImageFilter, ImageStat
 
 
 def clamp(value, low=0, high=255):
@@ -72,17 +72,15 @@ def add_line(strokes, phase, x, y, length, width, color, opacity, angle):
     })
 
 
-def render_preview(document, output):
+def render_strokes(strokes, width, height, background):
     """Canvas の source-over + globalAlpha に近い見た目を Pillow で再現する。"""
-    width = document['canvas']['width']
-    height = document['canvas']['height']
-    image = Image.new('RGB', (width, height), document['canvas']['background'])
+    image = Image.new('RGB', (width, height), background)
     draw = ImageDraw.Draw(image, 'RGBA')
-    for stroke in document['strokes']:
-        if stroke['brush'] != 'line':
+    for stroke in strokes:
+        if stroke.get('brush') != 'line':
             continue
         rgb = parse_hex(stroke['color'])
-        alpha = int(clamp(round((stroke.get('opacity', 1.0)) * 255)))
+        alpha = int(clamp(round(stroke.get('opacity', 1.0) * 255)))
         fill = (*rgb, alpha)
         line_width = max(1, int(round(stroke['width'])))
         xy = (stroke['x1'], stroke['y1'], stroke['x2'], stroke['y2'])
@@ -92,7 +90,27 @@ def render_preview(document, output):
             radius = line_width / 2
             for x, y in ((stroke['x1'], stroke['y1']), (stroke['x2'], stroke['y2'])):
                 draw.ellipse((x - radius, y - radius, x + radius, y + radius), fill=fill)
-    image.save(output, quality=95)
+    return image
+
+
+def image_metrics(reference, rendered):
+    diff = ImageChops.difference(reference, rendered)
+    stat = ImageStat.Stat(diff)
+    mae = sum(stat.mean) / len(stat.mean)
+    rms = math.sqrt(sum(value * value for value in stat.rms) / len(stat.rms))
+    psnr = 99.0 if rms == 0 else 20 * math.log10(255.0 / rms)
+
+    ref_edges = reference.convert('L').filter(ImageFilter.FIND_EDGES)
+    out_edges = rendered.convert('L').filter(ImageFilter.FIND_EDGES)
+    edge_diff = ImageChops.difference(ref_edges, out_edges)
+    edge_mae = ImageStat.Stat(edge_diff).mean[0]
+
+    return {
+        'mae': round(mae, 4),
+        'rmse': round(rms, 4),
+        'psnr': round(psnr, 4),
+        'edge_mae': round(edge_mae, 4),
+    }
 
 
 def add_grid_pass(strokes, pixels, width, height, rng, *, step, length,
@@ -132,25 +150,77 @@ def collect_detail_samples(pixels, width, height, rng, count):
     return samples
 
 
+def collect_residual_samples(reference, rendered, count, *, stride=2, offset=0):
+    """現在の描画と参照画像の残差が大きい場所を優先して返す。"""
+    ref_pixels = reference.load()
+    out_pixels = rendered.load()
+    width, height = reference.size
+    candidates = []
+    start = offset % stride
+
+    for y in range(max(2, start), height - 2, stride):
+        for x in range(max(2, start), width - 2, stride):
+            ref = ref_pixels[x, y]
+            out = out_pixels[x, y]
+            dr = ref[0] - out[0]
+            dg = ref[1] - out[1]
+            db = ref[2] - out[2]
+            color_error = math.sqrt((dr * dr + dg * dg + db * db) / 3)
+            angle, magnitude = gradient_angle(ref_pixels, x, y, width, height)
+            # 形状に効く輪郭部を少し優先するが、色の残差を主目的にする。
+            score = color_error * (1.0 + min(magnitude, 80) / 220.0)
+            if score > 2.0:
+                candidates.append((score, x, y, angle, magnitude))
+
+    candidates.sort(key=lambda item: item[0], reverse=True)
+    return candidates[:count]
+
+
+def add_residual_repair(strokes, reference, rendered, count, *, phase, stride, offset):
+    ref_pixels = reference.load()
+    width, height = reference.size
+    samples = collect_residual_samples(
+        reference, rendered, count, stride=stride, offset=offset
+    )
+    for _, x, y, angle, magnitude in samples:
+        red, green, blue = ref_pixels[x, y]
+        is_edge = magnitude > 18
+        add_line(
+            strokes,
+            phase,
+            x,
+            y,
+            1.9 if is_edge else 2.7,
+            1.05 if is_edge else 1.45,
+            hexcolor((red, green, blue)),
+            0.99 if is_edge else 0.94,
+            angle,
+        )
+    return len(samples)
+
+
 def main():
     parser = argparse.ArgumentParser(description='参照画像を順序付きブラシストロークへ変換する')
     parser.add_argument('input')
     parser.add_argument('--output', default='strokes.generated.json')
     parser.add_argument('--preview', default='preview.png')
+    parser.add_argument('--metrics', default='metrics.json')
     parser.add_argument('--width', type=int, default=768)
     parser.add_argument('--height', type=int, default=1024)
     parser.add_argument('--seed', type=int, default=20260908)
-    parser.add_argument('--detail', type=int, default=50000)
+    parser.add_argument('--detail', type=int, default=28000)
+    parser.add_argument('--repair', type=int, default=20000)
     args = parser.parse_args()
 
     rng = random.Random(args.seed)
     image = crop_resize(Image.open(args.input), args.width, args.height)
     pixels = image.load()
     width, height = image.size
+    background = hexcolor(pixels[0, 0])
     strokes = []
+    metrics_history = []
 
     # 低周波 → 中周波 → 高周波の順で積み上げる。
-    # 約12万ストロークを目安にしつつ、最終層ほど参照画像へ忠実にする。
     passes = [
         dict(step=14, length=18.0, brush_width=15.0, opacity=0.97,
              phase='coarse', jitter=1.8),
@@ -179,11 +249,49 @@ def main():
             angle,
         )
 
+    # ここからが実際のフィードバックループ。
+    # 一度描いた結果を評価し、誤差の大きい場所だけを追加ストロークで修正する。
+    rendered = render_strokes(strokes, width, height, background)
+    metrics_history.append({
+        'stage': 'base',
+        'stroke_count': len(strokes),
+        **image_metrics(image, rendered),
+    })
+
+    repair_first = int(args.repair * 0.6)
+    repair_second = max(0, args.repair - repair_first)
+
+    added = add_residual_repair(
+        strokes, image, rendered, repair_first,
+        phase='repair1', stride=2, offset=0
+    )
+    rendered = render_strokes(strokes, width, height, background)
+    metrics_history.append({
+        'stage': 'repair1',
+        'added_strokes': added,
+        'stroke_count': len(strokes),
+        **image_metrics(image, rendered),
+    })
+
+    added = add_residual_repair(
+        strokes, image, rendered, repair_second,
+        phase='repair2', stride=2, offset=1
+    )
+    rendered = render_strokes(strokes, width, height, background)
+    metrics_history.append({
+        'stage': 'repair2',
+        'added_strokes': added,
+        'stroke_count': len(strokes),
+        **image_metrics(image, rendered),
+    })
+
     phases = [
         {'id': 'coarse', 'label': '下塗り'},
         {'id': 'medium', 'label': '中間描画'},
         {'id': 'refine', 'label': '形状精密化'},
         {'id': 'detail', 'label': '細部'},
+        {'id': 'repair1', 'label': '残差修正 1'},
+        {'id': 'repair2', 'label': '残差修正 2'},
     ]
     for index, stroke in enumerate(strokes, 1):
         stroke['id'] = index
@@ -195,22 +303,29 @@ def main():
             'seed': args.seed,
             'source_mode': 'reference-guided',
             'stroke_count': len(strokes),
+            'quality_metrics': metrics_history[-1],
         },
         'canvas': {
             'width': width,
             'height': height,
-            'background': hexcolor(pixels[0, 0]),
+            'background': background,
         },
         'phases': phases,
         'strokes': strokes,
     }
 
     Path(args.output).write_text(json.dumps(document, separators=(',', ':')), encoding='utf-8')
-    render_preview(document, args.preview)
+    rendered.save(args.preview, quality=95)
+    Path(args.metrics).write_text(
+        json.dumps({'history': metrics_history}, ensure_ascii=False, indent=2),
+        encoding='utf-8'
+    )
     print(json.dumps({
         'strokes': len(strokes),
         'output': args.output,
         'preview': args.preview,
+        'metrics': args.metrics,
+        'quality': metrics_history[-1],
     }, ensure_ascii=False))
 
 
