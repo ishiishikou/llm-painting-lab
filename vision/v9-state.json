@@ -1,37 +1,37 @@
 {
-  "version": 4,
-  "review_round": 7,
+  "version": 5,
+  "review_round": 8,
   "frozen_base_phases": ["silhouette", "light_shadow"],
-  "accepted_bundle_ids": ["semantic-eye_band-3189-75"],
+  "accepted_bundle_ids": [
+    "semantic-eye_band-3189-75",
+    "semantic-eye_band-3150-75"
+  ],
+  "accepted_passages": [
+    {
+      "bundle_id": "semantic-eye_band-3189-75",
+      "source_stroke_ids": [2639,2716,2745,2802,2804,2839,2845,2856,2985,3067,3079,3102,3115,3150,3189,3207,3325,3330,3332,3355,3365,3386,3435,3477,3489,3526,3534,3548,3583,3623,3634,3666,3668,3685,3716,3732,3750,3756,3768,3769,3845,3898,3986,3989,4045,4069,4155,4217,4228,4276,4280,4293,4304,4306,4351,4364,4398,4410,4482,4494,4503,4512,4532,4646,4708,4711,4715,4720,4739,4783,4785,4789,4846,4848,4862]
+    },
+    {
+      "bundle_id": "semantic-eye_band-3150-75",
+      "source_stroke_ids": [2536,2675,2716,2737,2802,2804,2819,2839,2845,2869,2985,2994,3150,3169,3207,3252,3256,3266,3285,3330,3332,3355,3360,3365,3386,3400,3435,3477,3524,3534,3535,3563,3634,3668,3685,3704,3707,3716,3723,3732,3756,3769,3919,3986,3989,4045,4139,4143,4155,4228,4276,4304,4306,4364,4410,4435,4482,4494,4507,4512,4532,4535,4646,4701,4711,4715,4720,4725,4729,4739,4741,4757,4763,4789,4848]
+    }
+  ],
   "rejected_bundle_ids": [
-    "load-88",
-    "micro-0098",
-    "micro-0066",
-    "passage-0099",
-    "passage-0096",
-    "passage-0094",
-    "passage-0199",
-    "passage-0189",
-    "passage-0156",
-    "passage-0163",
-    "passage-0162",
-    "passage-0191",
-    "passage-0149",
-    "passage-0160",
-    "passage-0151",
-    "passage-0167",
-    "passage-0140",
-    "passage-0161",
     "semantic-eye_band-2498-75",
     "semantic-eye_band-3758-75",
     "semantic-eye_band-2693-75",
     "semantic-eye_band-4651-75",
-    "semantic-eye_band-3495-75"
+    "semantic-eye_band-3495-75",
+    "semantic-eye_band-3844-75",
+    "semantic-eye_band-3815-75",
+    "semantic-eye_band-2956-75",
+    "semantic-eye_band-2798-75",
+    "semantic-eye_band-4141-75"
   ],
   "intent_card": {
     "region": "face",
-    "focus": "eye_band",
-    "goal": "round 6で採用した目周辺passageを残し、反対側の目・眉・鼻根のつながりに意味のあるv7顔構造passageをもう一つだけ選ぶ",
+    "focus": "mid_face",
+    "goal": "採用済みの目周辺passageを保持したまま、鼻根から鼻先・頬へつながる面をv7の既存顔構造passageから一仕事だけ選ぶ",
     "candidate_mode": "semantic_passage",
     "candidate_count": 6,
     "source_phases": ["face_structure"],
@@ -40,11 +40,11 @@
     "avoid_brushes": ["line", "mixerBrush", "smudgeBrush", "glaze"],
     "avoid": [
       "座標をAIが直接指定する",
-      "採用済みpassageと同じ場所を重ね塗りする",
-      "白目を記号的に描く",
-      "細線だけで顔を救済する",
-      "ターバン側へ青い線を漏らす"
+      "鼻を一本の輪郭線として描く",
+      "頬全体へ均等な細線を散らす",
+      "採用済みの目周辺を塗り潰す",
+      "ターバンや背景の色を顔へ持ち込む"
     ],
-    "review_note": "round 6ではBが左側の目周辺へ肌色と影のまとまりを足し、青い境界汚染や白い記号を増やさず、MAEも14.0646から14.0396へ改善したため採用。A/C/D/E/Fは目的位置から外れるか、面の読みを改善しないため却下。"
+    "review_note": "round 7ではBが近い側の目の周囲に肌色と影のまとまりを追加し、白い記号や青い漏れを増やさず、MAEも14.0396から14.0283へ改善したため採用。次は顔の読みを決める鼻・頬の中間面へ移る。"
   }
 }
