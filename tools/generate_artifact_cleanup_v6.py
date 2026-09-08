@@ -8,11 +8,21 @@ boundary. Face classification is also changed from a rectangle to a soft organic
 region so stroke density does not terminate on four axis-aligned sides.
 """
 import json
+import math
 import sys
 from pathlib import Path
 
 import reference_to_brush_process as base
 import generate_direction_field_v5  # noqa: F401: installs the v5 direction field into base
+
+
+def face_geometry(face):
+    fx0, fy0, fx1, fy1 = face
+    fw = max(1.0, fx1 - fx0)
+    fh = max(1.0, fy1 - fy0)
+    cx = (fx0 + fx1) / 2 + fw * 0.03
+    cy = (fy0 + fy1) / 2 + fh * 0.02
+    return cx, cy, fw * 0.58, fh * 0.59
 
 
 def organic_region(x, y, p, bg, sub, face):
@@ -26,10 +36,9 @@ def organic_region(x, y, p, bg, sub, face):
     # slightly asymmetric support region plus the actual skin-color observation.
     fw = max(1.0, fx1 - fx0)
     fh = max(1.0, fy1 - fy0)
-    cx = (fx0 + fx1) / 2 + fw * 0.03
-    cy = (fy0 + fy1) / 2 + fh * 0.02
-    nx = (x - cx) / (fw * 0.58)
-    ny = (y - cy) / (fh * 0.59)
+    cx, cy, rx, ry = face_geometry(face)
+    nx = (x - cx) / rx
+    ny = (y - cy) / ry
     ellipse = nx * nx + ny * ny
     near_face = fx0 - fw * 0.12 <= x <= fx1 + fw * 0.12 and fy0 - fh * 0.10 <= y <= fy1 + fh * 0.12
     if near_face and (base.skin(p) or ellipse <= 1.08):
@@ -58,6 +67,34 @@ def face_role(role):
     )
 
 
+def fit_face_broad_length(x, y, length, angle, face):
+    """Keep broad face strokes inside a rounded support region without hard clipping.
+
+    This prevents the new failure mode where removing clipBox exposes rows of round
+    flat-brush caps outside the cheek/forehead. The stroke is shortened before it is
+    painted, so no artificial edge is cut into the rendered pixels.
+    """
+    cx, cy, rx, ry = face_geometry(face)
+    # Slightly enlarge the support region so adjacent strokes overlap naturally.
+    rx *= 1.06
+    ry *= 1.06
+    px, py = x - cx, y - cy
+    dx, dy = math.cos(angle), math.sin(angle)
+    a = (dx * dx) / (rx * rx) + (dy * dy) / (ry * ry)
+    b = 2 * ((px * dx) / (rx * rx) + (py * dy) / (ry * ry))
+    c = (px * px) / (rx * rx) + (py * py) / (ry * ry) - 1
+    disc = b * b - 4 * a * c
+    if disc <= 0 or a <= 0:
+        return max(8.0, length * .58)
+    root = math.sqrt(disc)
+    t0 = (-b - root) / (2 * a)
+    t1 = (-b + root) / (2 * a)
+    if not (t0 < 0 < t1):
+        return max(8.0, length * .62)
+    half = min(-t0, t1) * .90
+    return max(8.0, min(length, half * 2))
+
+
 def no_face_box_clip(fn):
     def wrapped(*args, **kwargs):
         # role / clip positions follow the stable add_* signatures in
@@ -84,12 +121,21 @@ def no_face_box_clip(fn):
         if role is None and role_index is not None and len(args) > role_index:
             role = args[role_index]
         if face_role(role):
+            args = list(args)
+            original_clip = kwargs.get('clip')
+            if original_clip is None and clip_index is not None and len(args) > clip_index:
+                original_clip = args[clip_index]
+
+            # Broad brushes should approach the organic face edge rather than leave
+            # pill-shaped caps protruding into the background/headwrap.
+            if name in {'add_flat', 'add_dry'} and original_clip and len(args) > 8:
+                args[4] = fit_face_broad_length(args[2], args[3], args[4], args[8], original_clip)
+
             if 'clip' in kwargs:
                 kwargs['clip'] = None
             elif clip_index is not None and len(args) > clip_index:
-                args = list(args)
                 args[clip_index] = None
-                args = tuple(args)
+            args = tuple(args)
         return fn(*args, **kwargs)
     return wrapped
 
