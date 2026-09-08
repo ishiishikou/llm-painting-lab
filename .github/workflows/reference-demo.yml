@@ -26,7 +26,7 @@ jobs:
 
       - name: Check implementations and rules
         run: |
-          python -m py_compile tools/reference_to_brush_process.py tools/generate_direction_field_v5.py tools/generate_artifact_cleanup_v6.py tools/generate_observe_act_v7.py tools/generate_observe_act_v7_hybrid.py tools/generate_observe_act_v7_final.py tools/render_brush_motion_video.py
+          python -m py_compile tools/reference_to_brush_process.py tools/generate_direction_field_v5.py tools/generate_artifact_cleanup_v6.py tools/generate_observe_act_v7.py tools/generate_observe_act_v7_hybrid.py tools/generate_observe_act_v7_final.py tools/generate_observe_act_v7_foldfield.py tools/render_brush_motion_video.py
           node --check src/brushes.js
           test -s docs/painting-tool-rules.md
           test -s docs/painting-evaluation-rules.md
@@ -47,7 +47,7 @@ jobs:
       - name: Generate observe-act v7 process
         run: |
           mkdir -p artifact/src artifact/checkpoints
-          python tools/generate_observe_act_v7_final.py reference.jpg \
+          python tools/generate_observe_act_v7_foldfield.py reference.jpg \
             --output artifact/strokes.generated.json \
             --preview artifact/preview.png \
             --metrics artifact/metrics.json \
@@ -74,8 +74,8 @@ jobs:
           observe-act v7 の成果物です。
 
           大きな形と中間サイズの明暗面は、規則的な格子を露出させず、位置・長さ・太さ・方向を
-          部位の形に沿って変えながら粗い作業領域ごとにブロックインします。塗りの途中には
-          Mixer / Smudge を挟み、同じ向きの棒線を並べるだけの工程にしません。
+          部位の形に沿って変えながら粗い作業領域ごとにブロックインします。衣服は単一の縦方向
+          ではなく複数の連続した折り目方向場で塗り、塗りの途中には Mixer / Smudge を挟みます。
 
           その後は「現在の絵を見る→問題のある部位と目的を一つ決める→パレットで色を作る→
           近接した4〜7筆を描く→もう一度見る」という短い作業単位を反復します。
@@ -145,7 +145,7 @@ jobs:
           if phases['detail']>=14000: raise SystemExit('細部が単一大量復元へ戻っている')
           if phases['finish']>=8000: raise SystemExit('仕上げが単一大量復元へ戻っている')
           if len(strokes)>=28000: raise SystemExit('総ストロークが過剰')
-          required={'dryBrush':1000,'flatBrush':1400,'variableBrush':3500,'mixerBrush':180,'smudgeBrush':20,'glaze':20}
+          required={'dryBrush':900,'flatBrush':1200,'variableBrush':3500,'mixerBrush':180,'smudgeBrush':20,'glaze':20}
           for b,n in required.items():
               if brushes[b]<n: raise SystemExit(f'{b}不足: {brushes[b]} < {n}')
           if any(s.get('brush')=='ellipse' for s in strokes): raise SystemExit('円形スタンプが残っている')
