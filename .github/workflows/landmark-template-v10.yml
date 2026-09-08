@@ -4,6 +4,7 @@ on:
   pull_request:
     paths:
       - 'tools/generate_landmark_templates_v10.py'
+      - 'tools/render_v10_debug_artifacts.py'
       - 'vision/v9-state.json'
       - 'vision/v10-state.json'
       - '.github/workflows/landmark-template-v10.yml'
@@ -24,11 +25,11 @@ jobs:
           python-version: '3.12'
 
       - name: Install dependencies
-        run: python -m pip install --disable-pip-version-check pillow 'opencv-python-headless<5'
+        run: python -m pip install --disable-pip-version-check pillow 'opencv-python-headless==4.13.0.92'
 
       - name: Verify semantic intent has no authored coordinates
         run: |
-          python -m py_compile tools/generate_landmark_templates_v10.py
+          python -m py_compile tools/generate_landmark_templates_v10.py tools/render_v10_debug_artifacts.py
           python - <<'PY'
           import json
           from pathlib import Path
@@ -89,12 +90,31 @@ jobs:
           cp vision/v9-state.json artifact/v10/v9-state.json
           cp vision/v10-state.json artifact/v10/v10-state.json
 
+      - name: Export exact detector reference and landmark overlay
+        run: |
+          python tools/render_v10_debug_artifacts.py \
+            reference.jpg artifact/v10/current.png artifact/v10/landmarks.json \
+            --out-dir artifact/v10
+          python - <<'PY'
+          import cv2, json
+          from pathlib import Path
+          p=Path('artifact/v10/landmarks.json')
+          data=json.loads(p.read_text())
+          data['opencv_version']=cv2.__version__
+          p.write_text(json.dumps(data, ensure_ascii=False, indent=2))
+          PY
+
       - name: Verify candidate geometry provenance
         run: |
+          test -s artifact/v10/reference.png
+          test -s artifact/v10/landmark-overlay.png
           python - <<'PY'
           import json
           from pathlib import Path
           m=json.loads(Path('artifact/v10/candidate-manifest.json').read_text())
+          lm=json.loads(Path('artifact/v10/landmarks.json').read_text())
+          if lm.get('opencv_version') != '4.13.0':
+              raise SystemExit(f'unexpected OpenCV version: {lm.get("opencv_version")}')
           if m.get('coordinates_authored_by_reviewer') is not False:
               raise SystemExit('reviewer coordinates must remain disabled')
           if m.get('reference_used_for_landmark_detection') is not True:
