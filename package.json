@@ -1,0 +1,10 @@
+{
+  "name": "llm-painting-lab",
+  "version": "0.1.0",
+  "private": true,
+  "type": "module",
+  "scripts": {
+    "serve": "node tools/serve.mjs",
+    "validate": "node tools/validate-strokes.mjs"
+  }
+}
