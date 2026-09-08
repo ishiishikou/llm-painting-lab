@@ -5,6 +5,10 @@ The reviewer decides only semantic intent (region/focus/goal). Exact coordinates
 colors, widths and brush geometry are inherited from already-generated v7 strokes.
 This tool groups those proven strokes into larger local passages so each visual
 review has a meaningful effect without asking the reviewer to author coordinates.
+
+Accepted passages are persisted by exact v7 source-stroke IDs. Candidate passages
+are built only from not-yet-accepted source strokes, so a candidate preview never
+repaints already accepted marks and then disappears after acceptance.
 """
 from __future__ import annotations
 
@@ -96,20 +100,32 @@ def jaccard(a, b):
     return len(sa & sb) / max(1, len(sa | sb))
 
 
+def persisted_accepted_ids(state):
+    ids = set()
+    for passage in state.get("accepted_passages", []):
+        for sid in passage.get("source_stroke_ids", []):
+            ids.add(int(sid))
+    return ids
+
+
 def build_candidates(source, state):
     intent = state["intent_card"]
     face = source["metadata"]["face_bbox"]
-    pool = [s for s in source["strokes"] if eligible(s, intent, face)]
+    already_accepted = persisted_accepted_ids(state)
+    pool = [
+        s for s in source["strokes"]
+        if eligible(s, intent, face) and int(s.get("id", 0)) not in already_accepted
+    ]
     pool.sort(key=lambda s: int(s.get("id", 0)))
     if not pool:
-        raise SystemExit("no eligible semantic strokes")
+        raise SystemExit("no eligible semantic strokes after excluding accepted passages")
 
     minn = int(intent.get("min_strokes_per_candidate", 60))
     maxn = int(intent.get("max_strokes_per_candidate", 90))
     count = max(minn, min(maxn, int(round((minn + maxn) / 2))))
     wanted = int(intent.get("candidate_count", 6))
     rejected = set(state.get("rejected_bundle_ids", []))
-    accepted = set(state.get("accepted_bundle_ids", []))
+    accepted_names = set(state.get("accepted_bundle_ids", []))
 
     # Seed from spatially diverse existing strokes. This chooses only among exact v7
     # locations; the reviewer never provides coordinates.
@@ -137,7 +153,7 @@ def build_candidates(source, state):
         if len(ss) < minn:
             continue
         bid = bundle_id(intent.get("focus", "whole_face"), seed, len(ss))
-        if bid in rejected or bid in accepted:
+        if bid in rejected or bid in accepted_names:
             continue
         if any(jaccard(ss, old[1]) >= 0.58 for old in candidates):
             continue
@@ -161,10 +177,20 @@ def build_candidates(source, state):
     return pool, chosen
 
 
-def reconstruct_accepted(source, state, pool):
+def reconstruct_accepted(source, state, current_pool):
+    """Reconstruct accepted work from persisted source IDs, independent of new focus."""
+    source_by_id = {int(s.get("id", 0)): s for s in source["strokes"]}
+    persisted = persisted_accepted_ids(state)
+    if persisted:
+        missing = sorted(sid for sid in persisted if sid not in source_by_id)
+        if missing:
+            raise SystemExit(f"persisted accepted source ids missing: {missing[:12]}")
+        return [copy.deepcopy(source_by_id[sid]) for sid in sorted(persisted)]
+
+    # Legacy fallback for states created before accepted_passages was introduced.
     accepted = []
     missing = []
-    by_id = {int(s.get("id", 0)): s for s in pool}
+    by_id = {int(s.get("id", 0)): s for s in current_pool}
     for bid in state.get("accepted_bundle_ids", []):
         parsed = parse_bundle_id(bid)
         if not parsed:
@@ -175,10 +201,9 @@ def reconstruct_accepted(source, state, pool):
         if seed is None:
             missing.append(bid)
             continue
-        accepted.extend(nearest_bundle(seed, pool, count))
+        accepted.extend(nearest_bundle(seed, current_pool, count))
     if missing:
-        raise SystemExit(f"accepted semantic bundle ids missing: {missing}")
-    # Keep exact source order and avoid duplicate strokes when accepted passages overlap.
+        raise SystemExit(f"legacy accepted semantic bundle ids missing: {missing}")
     uniq = {int(s.get("id", 0)): s for s in accepted}
     return [copy.deepcopy(uniq[k]) for k in sorted(uniq)]
 
@@ -215,6 +240,7 @@ def main():
 
     pool, chosen = build_candidates(source, state)
     accepted_strokes = reconstruct_accepted(source, state, pool)
+    accepted_source_ids = {int(s.get("id", 0)) for s in accepted_strokes}
     current_strokes = base_strokes + accepted_strokes
     base.render(current_strokes, width, height, background).save(out_dir / "current.png")
 
@@ -235,6 +261,10 @@ def main():
     }
 
     for label, (bid, ss, seed_c) in zip(labels, chosen):
+        cand_ids = {int(s.get("id", 0)) for s in ss}
+        overlap = len(cand_ids & accepted_source_ids)
+        if overlap:
+            raise SystemExit(f"candidate {bid} overlaps accepted work by {overlap} strokes")
         cand = clone(ss, bid, label)
         base.render(current_strokes + cand, width, height, background).save(out_dir / f"candidate-{label}.png")
         manifest["candidates"].append({
@@ -246,6 +276,7 @@ def main():
             "phases": dict(Counter(s.get("phase") for s in ss)),
             "roles": dict(Counter(s.get("role") for s in ss)),
             "centroid_normalized": [round(seed_c[0] / width, 4), round(seed_c[1] / height, 4)],
+            "overlap_with_accepted": overlap,
             "source_stroke_ids": [s.get("id") for s in ss],
         })
 
