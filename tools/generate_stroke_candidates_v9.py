@@ -59,15 +59,18 @@ def focus_score(c, face, focus):
 
 def family_of(strokes):
     brushes = Counter(s.get("brush") for s in strokes)
+    phases = Counter(s.get("phase") for s in strokes)
     widths = [width_of(s) for s in strokes]
     mean_w = sum(widths) / max(1, len(widths))
     if brushes["mixerBrush"] + brushes["smudgeBrush"] >= max(1, len(strokes) // 3):
         return "blend"
-    if brushes["line"] >= max(1, len(strokes) // 3) or mean_w <= 3.8:
+    if phases["face_structure"] >= max(1, len(strokes) // 2) and brushes["variableBrush"] >= max(1, len(strokes) // 2):
+        return "structure"
+    if brushes["line"] >= max(1, len(strokes) // 3) or mean_w <= 2.6:
         return "edge"
     if mean_w >= 9.0 and brushes["line"] == 0:
         return "plane"
-    if mean_w <= 6.5 and (brushes["variableBrush"] + brushes["line"]) >= max(1, len(strokes) // 2):
+    if phases["detail"] + phases["finish"] >= max(1, len(strokes) // 2) and mean_w <= 6.5:
         return "accent"
     return "structure"
 
@@ -214,7 +217,7 @@ def main():
 
     scored = []
     for bid, ss in bundles.items():
-        if bid in accepted_ids or bid in rejected_ids or len(ss) > max_strokes:
+        if bid in accepted_ids or bid in rejected_ids or len(ss) > max_strokes or len(ss) < 3:
             continue
         score = candidate_score(bid, ss, intent, face, accepted_centroids)
         if score >= 4.0:
