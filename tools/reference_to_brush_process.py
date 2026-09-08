@@ -24,8 +24,8 @@ def crop_resize(im,w,h):
 
 def gradient(pix,x,y,w,h):
     x0,x1=max(0,x-1),min(w-1,x+1); y0,y1=max(0,y-1),min(h-1,y+1)
-    gx=lum(pix[x1,y])-lum(pix[x0,y]); gy=lum(pix[x,y1])-lum(pix[x,y0])
-    m=math.hypot(gx,gy); return (math.atan2(gy,gx)+math.pi/2 if m>1.5 else 0.0),m
+    gx=lum(pix[x1,y])-lum(pix[x0,y]); gy=lum(pix[x,y1])-lum(pix[x,y0]); m=math.hypot(gx,gy)
+    return (math.atan2(gy,gx)+math.pi/2 if m>1.5 else 0.0),m
 
 def border_bg(im):
     w,h=im.size; p=im.load(); pts=[]; s=max(4,min(w,h)//100)
@@ -35,38 +35,38 @@ def border_bg(im):
     return tuple(c[len(c)//2] for c in ch)
 
 def infer_subject(im,bg):
-    w,h=im.size; p=im.load(); xs=[];ys=[]; bl=lum(bg)
+    w,h=im.size;p=im.load();xs=[];ys=[];bl=lum(bg)
     for y in range(2,h,4):
         for x in range(2,w,4):
             q=p[x,y]
-            if dist(q,bg)>45 or lum(q)>bl+24: xs.append(x);ys.append(y)
-    if not xs: return (w*.18,h*.08,w*.88,h*.96)
+            if dist(q,bg)>45 or lum(q)>bl+24:xs.append(x);ys.append(y)
+    if not xs:return (w*.18,h*.08,w*.88,h*.96)
     xs.sort();ys.sort();a=int(len(xs)*.015);b=int(len(xs)*.985)-1
     return xs[a],ys[a],xs[b],ys[b]
 
 def skin(p):
-    r,g,b=p; return r>88 and g>58 and b>38 and r>g*1.01 and g>b*.90 and max(p)-min(p)>10
+    r,g,b=p;return r>88 and g>58 and b>38 and r>g*1.01 and g>b*.90 and max(p)-min(p)>10
 
 def infer_face(im,sub):
     w,h=im.size;p=im.load();sx0,sy0,sx1,sy1=sub;xs=[];ys=[];y1=min(h,int(sy0+(sy1-sy0)*.67))
     for y in range(max(0,int(sy0)),y1,3):
         for x in range(max(0,int(sx0)),min(w,int(sx1)),3):
-            if skin(p[x,y]): xs.append(x);ys.append(y)
+            if skin(p[x,y]):xs.append(x);ys.append(y)
     if len(xs)<100:return sx0+(sx1-sx0)*.18,sy0+(sy1-sy0)*.22,sx0+(sx1-sx0)*.67,sy0+(sy1-sy0)*.62
     xs.sort();ys.sort()
-    def q(a,f): return a[min(len(a)-1,max(0,int(len(a)*f)))]
+    def q(a,f):return a[min(len(a)-1,max(0,int(len(a)*f)))]
     return q(xs,.08),q(ys,.08),q(xs,.92),q(ys,.92)
 
 def inside(box,x,y,pad=0):
-    x0,y0,x1,y1=box; return x0-pad<=x<=x1+pad and y0-pad<=y<=y1+pad
+    x0,y0,x1,y1=box;return x0-pad<=x<=x1+pad and y0-pad<=y<=y1+pad
 
-def subject_pixel(p,bg): return dist(p,bg)>42 or lum(p)>lum(bg)+22
-def strong_subject_pixel(p,bg): return dist(p,bg)>58 or lum(p)>lum(bg)+30
+def subject_pixel(p,bg):return dist(p,bg)>42 or lum(p)>lum(bg)+22
+def strong_subject_pixel(p,bg):return dist(p,bg)>58 or lum(p)>lum(bg)+30
 
 def region(x,y,p,bg,sub,face):
     sx0,sy0,sx1,sy1=sub;fx0,fy0,fx1,fy1=face;sh=sy1-sy0
-    if not subject_pixel(p,bg): return 'background'
-    if inside(face,x,y,max(10,(fx1-fx0)*.08)): return 'face'
+    if not subject_pixel(p,bg):return 'background'
+    if inside(face,x,y,max(10,(fx1-fx0)*.08)):return 'face'
     if y<sy0+sh*.48:return 'headwrap'
     if y>fy1-(fy1-fy0)*.05:return 'garment'
     return 'subject'
@@ -83,7 +83,12 @@ def add_variable(strokes,phase,x,y,length,w0,w1,color,opacity,angle=0,role='',cl
     if clip:s['clipBox']=[round(v,2) for v in clip]
     strokes.append(s)
 
-def add_dry(strokes,phase,x,y,length,width,color,opacity,angle,seed,role='',strands=10,clip=None):
+def add_flat(strokes,phase,x,y,length,width,color,opacity,angle,seed,role='',clip=None):
+    x1,y1,x2,y2=segment(x,y,length,angle);s={'phase':phase,'brush':'flatBrush','x1':x1,'y1':y1,'x2':x2,'y2':y2,'widthStart':round(width,2),'widthEnd':round(width*.82,2),'width':round(width,2),'color':color,'opacity':round(opacity,3),'seed':int(seed),'role':role}
+    if clip:s['clipBox']=[round(v,2) for v in clip]
+    strokes.append(s)
+
+def add_dry(strokes,phase,x,y,length,width,color,opacity,angle,seed,role='',strands=7,clip=None):
     x1,y1,x2,y2=segment(x,y,length,angle);s={'phase':phase,'brush':'dryBrush','x1':x1,'y1':y1,'x2':x2,'y2':y2,'width':round(width,2),'spread':round(width*.92,2),'strands':strands,'seed':int(seed),'color':color,'opacity':round(opacity,3),'role':role}
     if clip:s['clipBox']=[round(v,2) for v in clip]
     strokes.append(s)
@@ -109,8 +114,8 @@ def underpaint_color(p):
 def clipped(s,x,y):
     b=s.get('clipBox');return True if not b else b[0]<=x<=b[2] and b[1]<=y<=b[3]
 
-def draw_variable(im,s,fraction=1.0):
-    d=ImageDraw.Draw(im,'RGBA');c=parse_hex(s.get('color','#fff'));a=int(clamp(round(s.get('opacity',1)*255)));x1,y1=s['x1'],s['y1'];x2=x1+(s['x2']-x1)*fraction;y2=y1+(s['y2']-y1)*fraction;ln=math.hypot(x2-x1,y2-y1);n=max(2,int(ln/2.5));prev=None
+def draw_variable(im,s,fraction=1.0,texture=False):
+    d=ImageDraw.Draw(im,'RGBA');c=parse_hex(s.get('color','#fff'));a=int(clamp(round(s.get('opacity',1)*255)));x1,y1=s['x1'],s['y1'];x2=x1+(s['x2']-x1)*fraction;y2=y1+(s['y2']-y1)*fraction;ln=math.hypot(x2-x1,y2-y1);n=max(2,int(ln/2.5));prev=None;rng=random.Random(int(s.get('seed',1)))
     for i in range(n+1):
         t=i/n;x=x1+(x2-x1)*t;y=y1+(y2-y1)*t
         if not clipped(s,x,y):continue
@@ -118,14 +123,18 @@ def draw_variable(im,s,fraction=1.0):
         if prev:
             px,py,pw=prev;d.line((px,py,x,y),fill=(*c,a),width=max(1,int(round((pw+w)/2))))
         d.ellipse((x-r,y-r,x+r,y+r),fill=(*c,a));prev=(x,y,w)
+    if texture and ln>5:
+        dx=x2-x1;dy=y2-y1;L=math.hypot(dx,dy) or 1;nx,ny=-dy/L,dx/L
+        for _ in range(3):
+            off=(rng.random()-.5)*s.get('width',10)*.65;aa=int(a*(.16+rng.random()*.10));d.line((x1+nx*off,y1+ny*off,x2+nx*off,y2+ny*off),fill=(*c,aa),width=max(1,int(s.get('width',10)*.08)))
 
 def draw_dry(im,s,fraction=1.0):
-    d=ImageDraw.Draw(im,'RGBA');c=parse_hex(s.get('color','#fff'));alpha=int(clamp(round(s.get('opacity',1)*255)));x1,y1=s['x1'],s['y1'];x2=x1+(s['x2']-x1)*fraction;y2=y1+(s['y2']-y1)*fraction;dx=x2-x1;dy=y2-y1;ln=math.hypot(dx,dy) or 1;nx,ny=-dy/ln,dx/ln;rng=random.Random(int(s.get('seed',1)));strands=max(5,int(s.get('strands',10)));spread=s.get('spread',s.get('width',12));sw=max(1,int(round(max(.7,s.get('width',8)/strands*.75))))
+    d=ImageDraw.Draw(im,'RGBA');c=parse_hex(s.get('color','#fff'));alpha=int(clamp(round(s.get('opacity',1)*255)));x1,y1=s['x1'],s['y1'];x2=x1+(s['x2']-x1)*fraction;y2=y1+(s['y2']-y1)*fraction;dx=x2-x1;dy=y2-y1;ln=math.hypot(dx,dy) or 1;nx,ny=-dy/ln,dx/ln;rng=random.Random(int(s.get('seed',1)));strands=max(4,int(s.get('strands',7)));spread=s.get('spread',s.get('width',12));sw=max(1,int(round(max(.9,s.get('width',8)/strands*1.15))))
     for _ in range(strands):
         off=(rng.random()-.5)*spread;j1=(rng.random()-.5)*2;j2=(rng.random()-.5)*2;xa=x1+nx*off+j1;ya=y1+ny*off+j1;xb=x2+nx*off+j2;yb=y2+ny*off+j2
         if s.get('clipBox'):
             b=s['clipBox'];xa=max(b[0],min(b[2],xa));xb=max(b[0],min(b[2],xb));ya=max(b[1],min(b[3],ya));yb=max(b[1],min(b[3],yb))
-        aa=int(alpha*(.28+rng.random()*.65));d.line((xa,ya,xb,yb),fill=(*c,aa),width=sw)
+        aa=int(alpha*(.34+rng.random()*.58));d.line((xa,ya,xb,yb),fill=(*c,aa),width=sw)
 
 def draw_mixer(im,s,fraction=1.0):
     d=ImageDraw.Draw(im,'RGBA');paint=tuple(float(v) for v in parse_hex(s.get('color','#fff')));x1,y1=s['x1'],s['y1'];x2=x1+(s['x2']-x1)*fraction;y2=y1+(s['y2']-y1)*fraction;ln=math.hypot(x2-x1,y2-y1);n=max(2,int(ln/3));pickup=float(s.get('pickup',.18));mix=float(s.get('mix',.58));deposit=float(s.get('deposit',.42));base_alpha=float(s.get('opacity',1))*deposit
@@ -150,6 +159,7 @@ def draw_glaze(im,s,fraction=1.0):
 def apply_stroke(im,s,fraction=1.0):
     b=s.get('brush','line')
     if b=='dryBrush':draw_dry(im,s,fraction)
+    elif b=='flatBrush':draw_variable(im,s,fraction,True)
     elif b=='variableBrush':draw_variable(im,s,fraction)
     elif b=='mixerBrush':draw_mixer(im,s,fraction)
     elif b=='smudgeBrush':draw_smudge(im,s,fraction)
@@ -168,10 +178,7 @@ def metrics(ref,out):
 
 def composition(strokes,sub,face):
     sx0,sy0,sx1,sy1=sub;fx0,fy0,fx1,fy1=face;sw,sh=sx1-sx0,sy1-sy0;fw,fh=fx1-fx0,fy1-fy0;cx=(fx0+fx1)/2;cy=(fy0+fy1)/2;c='#9a8169'
-    add_variable(strokes,'composition',cx,cy,fh*.78,1.8,.7,c,.28,math.pi/2,'face-center')
-    add_variable(strokes,'composition',cx,fy0+fh*.42,fw*.84,1.7,.6,c,.26,0,'eye-line')
-    add_variable(strokes,'composition',cx,fy0+fh*.70,fw*.52,1.5,.55,c,.22,0,'mouth-line')
-    add_variable(strokes,'composition',sx0+sw*.52,sy0+sh*.78,sw*.70,2.3,.8,c,.30,-.06,'shoulder-gesture')
+    add_variable(strokes,'composition',cx,cy,fh*.78,1.8,.7,c,.28,math.pi/2,'face-center');add_variable(strokes,'composition',cx,fy0+fh*.42,fw*.84,1.7,.6,c,.26,0,'eye-line');add_variable(strokes,'composition',cx,fy0+fh*.70,fw*.52,1.5,.55,c,.22,0,'mouth-line');add_variable(strokes,'composition',sx0+sw*.52,sy0+sh*.78,sw*.70,2.3,.8,c,.30,-.06,'shoulder-gesture')
     for x,y,l,a in [(sx0+sw*.34,sy0+sh*.10,sw*.26,.55),(sx0+sw*.57,sy0+sh*.11,sw*.28,-.15),(sx0+sw*.72,sy0+sh*.28,sh*.22,1.25),(sx0+sw*.23,sy0+sh*.31,sh*.21,1.88),(sx0+sw*.67,sy0+sh*.60,sh*.22,1.43)]:add_variable(strokes,'composition',x,y,l,2.0,.7,c,.20,a,'contour-note')
 
 def broad_pass(strokes,im,phase,bg,sub,face,rng,step,length,width,blur,opacity,under=False,order=('headwrap','face','garment','subject')):
@@ -188,7 +195,9 @@ def broad_pass(strokes,im,phase,bg,sub,face,rng,step,length,width,blur,opacity,u
     for r in order:
         vals=groups.get(r,[]);rng.shuffle(vals);vals.sort(key=lambda t:(int(t[1]//(step*3)),int(t[0]//(step*3))))
         for x,y,q,a,m in vals:
-            ln=length*(.78 if m>24 else 1);wd=width*(.82 if m>28 else 1);col=underpaint_color(q) if under else hexcolor(q);add_dry(strokes,phase,x,y,ln,wd,col,opacity,a,rng.randrange(1,2**31-1),('underpaint-' if under else '')+r,10 if under else 8,sub)
+            ln=length*(.78 if m>24 else 1);wd=width*(.82 if m>28 else 1);col=underpaint_color(q) if under else hexcolor(q);seed=rng.randrange(1,2**31-1)
+            if under:add_dry(strokes,phase,x,y,ln,wd,col,opacity,a,seed,'underpaint-'+r,6,sub)
+            else:add_flat(strokes,phase,x,y,ln,wd,col,opacity,a,seed,r,sub)
 
 def transition_candidates(im,bg,sub,face,count,rng,regions=('face','headwrap')):
     p=im.load();w,h=im.size;arr=[]
@@ -218,7 +227,7 @@ def face_structure(strokes,im,face,rng):
     pts.sort(reverse=True);pts=pts[:min(len(pts),2400)]
     for j,(m,x,y,q,a) in enumerate(pts):
         if j<500:add_variable(strokes,'face_structure',x,y,10 if m<18 else 6.5,4.8,1.6,hexcolor(q),.88,a,'face-plane',face)
-        else:add_dry(strokes,'face_structure',x,y,11 if m<18 else 7,4.2 if m<18 else 2.8,hexcolor(q),.88,a,rng.randrange(1,2**31-1),'face-plane',10,face)
+        else:add_dry(strokes,'face_structure',x,y,11 if m<18 else 7,4.2 if m<18 else 2.8,hexcolor(q),.88,a,rng.randrange(1,2**31-1),'face-plane',6,face)
 
 def detail_points(im,bg,sub,face,count,rng):
     p=im.load();w,h=im.size;fx0,fy0,fx1,fy1=face;arr=[]
@@ -257,22 +266,20 @@ def region_average(im,bg,sub,face,wanted):
     return tuple(sum(v[i] for v in vals)/len(vals) for i in range(3))
 
 def glaze_pass(strokes,im,bg,sub,face,rng):
-    sx0,sy0,sx1,sy1=sub;fx0,fy0,fx1,fy1=face
-    specs=[('face',face,region_average(im,bg,sub,face,'face'),12,34,16,1.0),('headwrap',(sx0,sy0,sx1,sy0+(sy1-sy0)*.48),region_average(im,bg,sub,face,'headwrap'),16,52,22,-.10),('garment',(sx0,fy1,sx1,sy1),region_average(im,bg,sub,face,'garment'),16,58,26,1.35)]
+    sx0,sy0,sx1,sy1=sub;fx0,fy0,fx1,fy1=face;specs=[('face',face,region_average(im,bg,sub,face,'face'),12,34,16,1.0),('headwrap',(sx0,sy0,sx1,sy0+(sy1-sy0)*.48),region_average(im,bg,sub,face,'headwrap'),16,52,22,-.10),('garment',(sx0,fy1,sx1,sy1),region_average(im,bg,sub,face,'garment'),16,58,26,1.35)]
     for name,box,col,n,length,width,angle in specs:
         x0,y0,x1,y1=box
-        for _ in range(n):
-            x=rng.uniform(x0,x1);y=rng.uniform(y0,y1);add_glaze(strokes,'finish',x,y,length,width,hexcolor(col),.07 if name=='face' else .055,angle+rng.uniform(-.12,.12),f'glaze-{name}',box)
+        for _ in range(n):add_glaze(strokes,'finish',rng.uniform(x0,x1),rng.uniform(y0,y1),length,width,hexcolor(col),.07 if name=='face' else .055,angle+rng.uniform(-.12,.12),f'glaze-{name}',box)
 
 def main():
-    ap=argparse.ArgumentParser(description='公開油彩工程を参考に、混色・ぼかし・グレーズを使う6工程で描画する');ap.add_argument('input');ap.add_argument('--output',default='strokes.generated.json');ap.add_argument('--preview',default='preview.png');ap.add_argument('--metrics',default='metrics.json');ap.add_argument('--checkpoint-dir');ap.add_argument('--width',type=int,default=864);ap.add_argument('--height',type=int,default=1024);ap.add_argument('--seed',type=int,default=20260908);ap.add_argument('--detail',type=int,default=18000);ap.add_argument('--finish',type=int,default=10000)
-    a=ap.parse_args();rng=random.Random(a.seed);im=crop_resize(Image.open(a.input),a.width,a.height);bg_rgb=border_bg(im);bg=hexcolor(bg_rgb);sub=infer_subject(im,bg_rgb);face=infer_face(im,sub);strokes=[];cps=[];cdir=Path(a.checkpoint_dir) if a.checkpoint_dir else None
+    ap=argparse.ArgumentParser(description='公開油彩工程を参考に、平筆・混色・ぼかし・グレーズを使う6工程で描画する');ap.add_argument('input');ap.add_argument('--output',default='strokes.generated.json');ap.add_argument('--preview',default='preview.png');ap.add_argument('--metrics',default='metrics.json');ap.add_argument('--checkpoint-dir');ap.add_argument('--width',type=int,default=864);ap.add_argument('--height',type=int,default=1024);ap.add_argument('--seed',type=int,default=20260908);ap.add_argument('--detail',type=int,default=18000);ap.add_argument('--finish',type=int,default=10000);a=ap.parse_args()
+    rng=random.Random(a.seed);im=crop_resize(Image.open(a.input),a.width,a.height);bg_rgb=border_bg(im);bg=hexcolor(bg_rgb);sub=infer_subject(im,bg_rgb);face=infer_face(im,sub);strokes=[];cps=[];cdir=Path(a.checkpoint_dir) if a.checkpoint_dir else None
     if cdir:cdir.mkdir(parents=True,exist_ok=True)
     def cp(stage,name):
         out=render(strokes,a.width,a.height,bg);cps.append({'stage':stage,'stroke_count':len(strokes),**metrics(im,out)});out.save(cdir/name) if cdir else None;return out
     composition(strokes,sub,face);cp('composition','01-composition.png')
-    broad_pass(strokes,im,'silhouette',bg_rgb,sub,face,rng,52,105,34,22,.58,True,('garment','headwrap','face','subject'));broad_pass(strokes,im,'silhouette',bg_rgb,sub,face,rng,38,82,27,15,.78,False,('headwrap','face','garment','subject'));cp('silhouette','02-silhouette.png')
-    broad_pass(strokes,im,'light_shadow',bg_rgb,sub,face,rng,24,52,17,9,.80,False,('face','headwrap','garment','subject'));broad_pass(strokes,im,'light_shadow',bg_rgb,sub,face,rng,16,34,10,4,.86,False,('face','headwrap','garment','subject'));add_blending_pass(strokes,im,'light_shadow',bg_rgb,sub,face,rng,260,120);cp('light_shadow','03-light-shadow.png')
+    broad_pass(strokes,im,'silhouette',bg_rgb,sub,face,rng,52,105,34,22,.58,True,('garment','headwrap','face','subject'));broad_pass(strokes,im,'silhouette',bg_rgb,sub,face,rng,38,82,27,15,.72,False,('headwrap','face','garment','subject'));cp('silhouette','02-silhouette.png')
+    broad_pass(strokes,im,'light_shadow',bg_rgb,sub,face,rng,24,52,17,9,.70,False,('face','headwrap','garment','subject'));broad_pass(strokes,im,'light_shadow',bg_rgb,sub,face,rng,16,34,10,4,.76,False,('face','headwrap','garment','subject'));add_blending_pass(strokes,im,'light_shadow',bg_rgb,sub,face,rng,260,120);cp('light_shadow','03-light-shadow.png')
     face_structure(strokes,im,face,rng);add_blending_pass(strokes,im,'face_structure',bg_rgb,sub,face,rng,90,24);cp('face_structure','04-face-structure.png')
     for j,(sc,x,y,q,ang,r) in enumerate(detail_points(im,bg_rgb,sub,face,a.detail,rng)):
         if j<2200 or (r=='face' and j<4200):add_variable(strokes,'detail',x,y,4.5 if r=='face' else 5.2,2.4 if r=='face' else 2.8,.7,hexcolor(q),.94,ang,r,face if r=='face' else sub)
@@ -284,7 +291,6 @@ def main():
         else:add_line(strokes,'finish',x,y,2.8 if r=='face' else 3.3,1.15 if r=='face' else 1.4,hexcolor(q),.98,ang,r)
     out=cp('finish','06-finish.png');out.save(a.preview)
     for i,s in enumerate(strokes,1):s['id']=i
-    brushes=sorted({s['brush'] for s in strokes});data={'metadata':{'slug':'painting-tools-v4','title':'混色・ぼかし・グレーズを使う描画工程','seed':a.seed,'source_mode':'reference-guided-painting-tools-v4','stroke_count':len(strokes),'subject_bbox':[round(v,2) for v in sub],'face_bbox':[round(v,2) for v in face],'phase_order':[p[0] for p in PHASES],'background_policy':'toned-ground-no-progress','tool_policy':'docs/painting-tool-rules.md','available_generated_brushes':brushes,'process_basis':['drawing','underpainting','broad-brush block-in','mixer blending','smudge edge control','facial structure','details','glaze','final accents'],'quality_metrics':cps[-1]},'canvas':{'width':a.width,'height':a.height,'background':bg},'phases':[{'id':i,'label':l} for i,l in PHASES],'strokes':strokes}
-    Path(a.output).write_text(json.dumps(data,separators=(',',':')),encoding='utf-8');Path(a.metrics).write_text(json.dumps({'checkpoints':cps},ensure_ascii=False,indent=2),encoding='utf-8')
-    counts={b:sum(1 for s in strokes if s['brush']==b) for b in brushes};print(json.dumps({'strokes':len(strokes),'phase_counts':{p:sum(1 for s in strokes if s['phase']==p) for p,_ in PHASES},'brush_counts':counts,'masked_strokes':sum(1 for s in strokes if s.get('clipBox')),'quality':cps[-1]},ensure_ascii=False))
+    brushes=sorted({s['brush'] for s in strokes});data={'metadata':{'slug':'painting-tools-v4','title':'平筆・混色・ぼかし・グレーズを使う描画工程','seed':a.seed,'source_mode':'reference-guided-painting-tools-v4','stroke_count':len(strokes),'subject_bbox':[round(v,2) for v in sub],'face_bbox':[round(v,2) for v in face],'phase_order':[p[0] for p in PHASES],'background_policy':'toned-ground-no-progress','tool_policy':'docs/painting-tool-rules.md','available_generated_brushes':brushes,'process_basis':['drawing','underpainting','flat-brush block-in','value/color masses','mixer blending','smudge edge control','facial structure','details','glaze','final accents'],'quality_metrics':cps[-1]},'canvas':{'width':a.width,'height':a.height,'background':bg},'phases':[{'id':i,'label':l} for i,l in PHASES],'strokes':strokes}
+    Path(a.output).write_text(json.dumps(data,separators=(',',':')),encoding='utf-8');Path(a.metrics).write_text(json.dumps({'checkpoints':cps},ensure_ascii=False,indent=2),encoding='utf-8');counts={b:sum(1 for s in strokes if s['brush']==b) for b in brushes};print(json.dumps({'strokes':len(strokes),'phase_counts':{p:sum(1 for s in strokes if s['phase']==p) for p,_ in PHASES},'brush_counts':counts,'masked_strokes':sum(1 for s in strokes if s.get('clipBox')),'quality':cps[-1]},ensure_ascii=False))
 if __name__=='__main__':main()
