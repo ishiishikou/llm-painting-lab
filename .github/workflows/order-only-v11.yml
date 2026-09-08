@@ -27,7 +27,7 @@ jobs:
       - name: Install CPU landmark and rendering dependencies
         run: |
           sudo apt-get update
-          sudo apt-get install -y fonts-noto-cjk ffmpeg libegl1 libgl1
+          sudo apt-get install -y fonts-noto-cjk ffmpeg libegl1 libgl1 libgles2
           python -m pip install --disable-pip-version-check pillow numpy mediapipe imageio imageio-ffmpeg
           python - <<'PY'
           import mediapipe as mp
