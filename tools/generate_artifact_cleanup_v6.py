@@ -8,7 +8,6 @@ boundary. Face classification is also changed from a rectangle to a soft organic
 region so stroke density does not terminate on four axis-aligned sides.
 """
 import json
-import math
 import sys
 from pathlib import Path
 
@@ -23,7 +22,7 @@ def organic_region(x, y, p, bg, sub, face):
     if not base.subject_pixel(p, bg):
         return 'background'
 
-    # face_bbox is an observation aid, not a rectangular mask.  Use a rounded,
+    # face_bbox is an observation aid, not a rectangular mask. Use a rounded,
     # slightly asymmetric support region plus the actual skin-color observation.
     fw = max(1.0, fx1 - fx0)
     fh = max(1.0, fy1 - fy0)
@@ -61,12 +60,11 @@ def face_role(role):
 
 def no_face_box_clip(fn):
     def wrapped(*args, **kwargs):
-        # Every add_* function has role and clip either as keywords or in stable
-        # positional slots. Normalize only the clip argument and leave all other
-        # painting behavior unchanged.
+        # role / clip positions follow the stable add_* signatures in
+        # reference_to_brush_process.py. Only the hard clip is removed.
         name = fn.__name__
         role_index = {
-            'add_variable': 9,
+            'add_variable': 10,
             'add_flat': 10,
             'add_dry': 10,
             'add_mixer': 9,
@@ -74,7 +72,7 @@ def no_face_box_clip(fn):
             'add_glaze': 9,
         }.get(name)
         clip_index = {
-            'add_variable': 10,
+            'add_variable': 11,
             'add_flat': 11,
             'add_dry': 12,
             'add_mixer': 10,
