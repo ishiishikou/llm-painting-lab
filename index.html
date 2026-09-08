@@ -1,0 +1,42 @@
+<!doctype html>
+<html lang="ja">
+<head>
+  <meta charset="utf-8" />
+  <meta name="viewport" content="width=device-width,initial-scale=1" />
+  <title>LLM Painting Lab</title>
+  <link rel="stylesheet" href="./styles.css" />
+</head>
+<body>
+  <main class="app-shell">
+    <header>
+      <p class="eyebrow">LLM Painting Lab</p>
+      <h1>Iterative stroke renderer</h1>
+      <p class="lede">Raster images are not loaded. The canvas is rebuilt only from ordered stroke data.</p>
+    </header>
+
+    <section class="controls" aria-label="Painting controls">
+      <button id="play">Play</button>
+      <button id="pause">Pause</button>
+      <button id="step">+1 stroke</button>
+      <button id="reset">Reset</button>
+      <label>Speed
+        <input id="speed" type="range" min="1" max="300" value="40" />
+        <output id="speedValue">40</output>/frame
+      </label>
+      <button id="export">Export PNG</button>
+    </section>
+
+    <section class="status-grid">
+      <div><span>Stroke</span><strong id="strokeStatus">0 / 0</strong></div>
+      <div><span>Phase</span><strong id="phaseStatus">—</strong></div>
+      <div><span>State</span><strong id="runStatus">loading</strong></div>
+    </section>
+
+    <section class="canvas-frame">
+      <canvas id="painting" width="768" height="1024"></canvas>
+    </section>
+  </main>
+
+  <script type="module" src="./src/app.js"></script>
+</body>
+</html>
