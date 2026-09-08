@@ -58,9 +58,17 @@ jobs:
           fi
           test -s reference.jpg
 
+      - name: Cache proven v7 stroke source
+        id: cache-v7
+        uses: actions/cache@v4
+        with:
+          path: artifact/v7
+          key: v7-foldfield-source-20260908-v1
+
       - name: Recreate proven v7 stroke source
+        if: steps.cache-v7.outputs.cache-hit != 'true'
         run: |
-          mkdir -p artifact/v7 artifact/v9
+          mkdir -p artifact/v7
           python tools/generate_observe_act_v7_foldfield.py reference.jpg \
             --output artifact/v7/strokes.generated.json \
             --preview artifact/v7/preview.png \
@@ -68,7 +76,12 @@ jobs:
             --observation-log artifact/v7/observation-log.json \
             --width 864 --height 1024
 
-      - name: Propose three coordinate-free v9 candidates
+      - name: Verify cached/generated v7 source
+        run: |
+          test -s artifact/v7/strokes.generated.json
+          mkdir -p artifact/v9
+
+      - name: Propose coordinate-free v9 candidates
         run: |
           python tools/generate_stroke_candidates_v9.py \
             artifact/v7/strokes.generated.json vision/v9-state.json \
@@ -79,32 +92,36 @@ jobs:
       - name: Build visual review board
         run: |
           python - <<'PY'
-          import json
+          import json, math
           from pathlib import Path
           from PIL import Image, ImageDraw
           import sys
           sys.path.insert(0,'tools')
           import reference_to_brush_process as base
 
+          manifest=json.loads(Path('artifact/v9/candidate-manifest.json').read_text())
           current=Image.open('artifact/v9/current.png').convert('RGB')
           ref=base.crop_resize(Image.open('reference.jpg'),current.width,current.height)
+          labels=[c['label'] for c in manifest['candidates']]
           images=[('REFERENCE',ref),('CURRENT',current)]
-          for label in 'ABC':
+          for label in labels:
               images.append((f'CANDIDATE {label}',Image.open(f'artifact/v9/candidate-{label}.png').convert('RGB')))
-          scale=.34
+
+          cols=3
+          rows=math.ceil(len(images)/cols)
+          scale=.34 if rows <= 2 else .27
           tw,th=round(current.width*scale),round(current.height*scale)
           cell_h=th+34
-          board=Image.new('RGB',(tw*3,cell_h*2),(238,238,238))
+          board=Image.new('RGB',(tw*cols,cell_h*rows),(238,238,238))
           d=ImageDraw.Draw(board)
           for i,(label,im) in enumerate(images):
-              x=(i%3)*tw; y=(i//3)*cell_h
+              x=(i%cols)*tw; y=(i//cols)*cell_h
               board.paste(im.resize((tw,th)),(x,y+34))
               d.text((x+8,y+9),label,fill='black')
           board.save('artifact/v9/review-board.png')
 
-          manifest=json.loads(Path('artifact/v9/candidate-manifest.json').read_text())
           metrics={'current':base.metrics(ref,current),'candidates':{}}
-          for label in 'ABC':
+          for label in labels:
               im=Image.open(f'artifact/v9/candidate-{label}.png').convert('RGB')
               metrics['candidates'][label]=base.metrics(ref,im)
           Path('artifact/v9/evaluation-only.json').write_text(json.dumps(metrics,indent=2))
@@ -122,12 +139,14 @@ jobs:
               raise SystemExit('reviewer coordinates must remain disabled')
           if m.get('base_stroke_count',0) < 1500:
               raise SystemExit('frozen broad-painting base is unexpectedly small')
-          if len(m.get('candidates',[])) != 3:
-              raise SystemExit('A/B/C candidates missing')
+          expected=int(m['intent_card'].get('candidate_count',3))
+          if len(m.get('candidates',[])) != expected:
+              raise SystemExit(f'candidate count mismatch: {len(m.get("candidates",[]))} != {expected}')
+          minn=int(m['intent_card'].get('min_strokes_per_candidate',1))
           maxn=int(m['intent_card'].get('max_strokes_per_candidate',7))
           for c in m['candidates']:
-              if c['stroke_count'] > maxn:
-                  raise SystemExit(f'candidate too large: {c}')
+              if not (minn <= c['stroke_count'] <= maxn):
+                  raise SystemExit(f'candidate size outside requested passage: {c}')
               if not c.get('source_stroke_ids') or any(x is None for x in c['source_stroke_ids']):
                   raise SystemExit(f'candidate is not traceable to v7 strokes: {c}')
           PY
