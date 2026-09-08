@@ -59,7 +59,8 @@ def gradient_angle(pixels, x, y, width, height):
     return angle, magnitude
 
 
-def add_line(strokes, phase, x, y, length, width, color, opacity, angle=0.0, **extra):
+def add_line(strokes, phase, x, y, length, width, color, opacity,
+             angle=0.0, line_cap='round', **extra):
     dx = math.cos(angle) * length / 2
     dy = math.sin(angle) * length / 2
     stroke = {
@@ -72,23 +73,7 @@ def add_line(strokes, phase, x, y, length, width, color, opacity, angle=0.0, **e
         'width': round(width, 2),
         'color': color,
         'opacity': round(opacity, 3),
-        'lineCap': 'round',
-    }
-    stroke.update(extra)
-    strokes.append(stroke)
-
-
-def add_ellipse(strokes, phase, x, y, rx, ry, color, opacity, rotation=0.0, **extra):
-    stroke = {
-        'phase': phase,
-        'brush': 'ellipse',
-        'x': round(x, 2),
-        'y': round(y, 2),
-        'rx': round(rx, 2),
-        'ry': round(ry, 2),
-        'rotation': round(rotation, 4),
-        'color': color,
-        'opacity': round(opacity, 3),
+        'lineCap': line_cap,
     }
     stroke.update(extra)
     strokes.append(stroke)
@@ -98,22 +83,18 @@ def render_strokes(strokes, width, height, background):
     image = Image.new('RGB', (width, height), background)
     draw = ImageDraw.Draw(image, 'RGBA')
     for stroke in strokes:
+        if stroke.get('brush') != 'line':
+            continue
         rgb = parse_hex(stroke.get('color', '#ffffff'))
         alpha = int(clamp(round(stroke.get('opacity', 1.0) * 255)))
         fill = (*rgb, alpha)
-        brush = stroke.get('brush', 'line')
-        if brush == 'line':
-            line_width = max(1, int(round(stroke.get('width', 1))))
-            xy = (stroke['x1'], stroke['y1'], stroke['x2'], stroke['y2'])
-            draw.line(xy, fill=fill, width=line_width)
-            if line_width >= 3:
-                radius = line_width / 2
-                for x, y in ((stroke['x1'], stroke['y1']), (stroke['x2'], stroke['y2'])):
-                    draw.ellipse((x - radius, y - radius, x + radius, y + radius), fill=fill)
-        elif brush == 'ellipse':
-            x, y = stroke['x'], stroke['y']
-            rx, ry = stroke.get('rx', 10), stroke.get('ry', 10)
-            draw.ellipse((x - rx, y - ry, x + rx, y + ry), fill=fill)
+        line_width = max(1, int(round(stroke.get('width', 1))))
+        xy = (stroke['x1'], stroke['y1'], stroke['x2'], stroke['y2'])
+        draw.line(xy, fill=fill, width=line_width)
+        if stroke.get('lineCap', 'round') == 'round' and line_width >= 3:
+            radius = line_width / 2
+            for x, y in ((stroke['x1'], stroke['y1']), (stroke['x2'], stroke['y2'])):
+                draw.ellipse((x - radius, y - radius, x + radius, y + radius), fill=fill)
     return image
 
 
@@ -151,30 +132,27 @@ def infer_subject_bbox(image, background):
     width, height = image.size
     pixels = image.load()
     xs, ys = [], []
-    step = 4
     background_luminance = luminance(background)
-    for y in range(step // 2, height, step):
-        for x in range(step // 2, width, step):
+    for y in range(2, height, 4):
+        for x in range(2, width, 4):
             pixel = pixels[x, y]
-            if color_distance(pixel, background) > 48 or luminance(pixel) > background_luminance + 26:
+            if color_distance(pixel, background) > 45 or luminance(pixel) > background_luminance + 24:
                 xs.append(x)
                 ys.append(y)
     if not xs:
-        return (width * 0.2, height * 0.1, width * 0.85, height * 0.95)
+        return (width * .18, height * .08, width * .88, height * .96)
     xs.sort()
     ys.sort()
-    low = int(len(xs) * 0.02)
-    high = int(len(xs) * 0.98) - 1
-    return (xs[low], ys[low], xs[high], ys[high])
+    q0, q1 = int(len(xs) * .015), int(len(xs) * .985) - 1
+    return (xs[q0], ys[q0], xs[q1], ys[q1])
 
 
 def skin_like(pixel):
-    red, green, blue = pixel
-    maximum, minimum = max(pixel), min(pixel)
+    r, g, b = pixel
     return (
-        red > 95 and green > 65 and blue > 45 and
-        red > green * 1.02 and green > blue * 0.93 and
-        (maximum - minimum) > 12
+        r > 88 and g > 58 and b > 38 and
+        r > g * 1.01 and g > b * .90 and
+        max(pixel) - min(pixel) > 10
     )
 
 
@@ -183,179 +161,158 @@ def infer_face_bbox(image, subject_bbox):
     pixels = image.load()
     sx0, sy0, sx1, sy1 = subject_bbox
     xs, ys = [], []
-    x0, x1 = max(0, int(sx0)), min(width, int(sx1))
-    y0 = max(0, int(sy0))
-    y1 = min(height, int(sy0 + (sy1 - sy0) * 0.68))
-    for y in range(y0, y1, 3):
-        for x in range(x0, x1, 3):
+    y1 = min(height, int(sy0 + (sy1 - sy0) * .67))
+    for y in range(max(0, int(sy0)), y1, 3):
+        for x in range(max(0, int(sx0)), min(width, int(sx1)), 3):
             if skin_like(pixels[x, y]):
                 xs.append(x)
                 ys.append(y)
     if len(xs) < 100:
         return (
-            sx0 + (sx1 - sx0) * 0.18,
-            sy0 + (sy1 - sy0) * 0.20,
-            sx0 + (sx1 - sx0) * 0.67,
-            sy0 + (sy1 - sy0) * 0.64,
+            sx0 + (sx1 - sx0) * .18,
+            sy0 + (sy1 - sy0) * .22,
+            sx0 + (sx1 - sx0) * .67,
+            sy0 + (sy1 - sy0) * .62,
         )
-    xs.sort()
-    ys.sort()
-
-    def quantile(values, fraction):
-        return values[min(len(values) - 1, max(0, int(len(values) * fraction)))]
-
-    return (quantile(xs, 0.08), quantile(ys, 0.08), quantile(xs, 0.92), quantile(ys, 0.92))
+    xs.sort(); ys.sort()
+    def q(values, f):
+        return values[min(len(values)-1, max(0, int(len(values)*f)))]
+    return (q(xs,.08), q(ys,.08), q(xs,.92), q(ys,.92))
 
 
-def region_class(pixel, background):
-    red, green, blue = pixel
-    if color_distance(pixel, background) < 45 and luminance(pixel) < 75:
+def inside(box, x, y, pad=0):
+    x0, y0, x1, y1 = box
+    return x0-pad <= x <= x1+pad and y0-pad <= y <= y1+pad
+
+
+def subject_pixel(pixel, background):
+    return color_distance(pixel, background) > 42 or luminance(pixel) > luminance(background) + 22
+
+
+def semantic_region(x, y, pixel, background, subject_bbox, face_bbox):
+    sx0, sy0, sx1, sy1 = subject_bbox
+    fx0, fy0, fx1, fy1 = face_bbox
+    sh = sy1-sy0
+    if not subject_pixel(pixel, background):
         return 'background'
-    if blue > red * 1.12 and blue > green * 1.05:
-        return 'blue'
-    if red > 105 and green > 80 and blue < green * 0.82:
-        return 'ochre'
-    if skin_like(pixel):
-        return 'skin'
-    if luminance(pixel) < 72:
-        return 'dark'
-    return 'neutral'
+    if inside(face_bbox, x, y, pad=max(10, (fx1-fx0)*.08)):
+        return 'face'
+    if y < sy0 + sh * .48:
+        return 'headwrap'
+    if y > fy1 - (fy1-fy0)*.05:
+        return 'garment'
+    return 'subject'
 
 
-def nearest_order(points, start=None):
+def ordered_local(points, start=None, lookahead=72):
     if not points:
         return []
     remaining = points[:]
     if start is None:
         current = remaining.pop(0)
     else:
-        index = min(
-            range(len(remaining)),
-            key=lambda i: (remaining[i][0] - start[0]) ** 2 + (remaining[i][1] - start[1]) ** 2,
-        )
-        current = remaining.pop(index)
+        idx = min(range(len(remaining)), key=lambda i:
+                  (remaining[i][0]-start[0])**2 + (remaining[i][1]-start[1])**2)
+        current = remaining.pop(idx)
     result = [current]
     while remaining:
-        limit = min(64, len(remaining))
-        index = min(
-            range(limit),
-            key=lambda i: (remaining[i][0] - current[0]) ** 2 + (remaining[i][1] - current[1]) ** 2,
-        )
-        current = remaining.pop(index)
+        limit = min(lookahead, len(remaining))
+        idx = min(range(limit), key=lambda i:
+                  (remaining[i][0]-current[0])**2 + (remaining[i][1]-current[1])**2)
+        current = remaining.pop(idx)
         result.append(current)
     return result
-
-
-def tile_order(points, tile=96, face_bbox=None):
-    groups = defaultdict(list)
-    for point in points:
-        groups[(int(point[0] // tile), int(point[1] // tile))].append(point)
-
-    def tile_score(item):
-        (tile_x, tile_y), values = item
-        score = sum(value[-1] if isinstance(value[-1], (int, float)) else 0 for value in values) / max(1, len(values))
-        center_x = (tile_x + 0.5) * tile
-        center_y = (tile_y + 0.5) * tile
-        if face_bbox:
-            fx0, fy0, fx1, fy1 = face_bbox
-            if fx0 <= center_x <= fx1 and fy0 <= center_y <= fy1:
-                score += 1000
-        return score
-
-    ordered = []
-    for _, values in sorted(groups.items(), key=tile_score, reverse=True):
-        ordered.extend(nearest_order(values))
-    return ordered
 
 
 def phase_composition(strokes, subject_bbox, face_bbox):
     sx0, sy0, sx1, sy1 = subject_bbox
     fx0, fy0, fx1, fy1 = face_bbox
-    guide = '#b8aa8f'
-    center_x = (sx0 + sx1) / 2
-    center_y = (sy0 + sy1) / 2
-    add_line(strokes, 'composition', center_x, center_y, (sy1 - sy0) * 0.88, 2.0, guide, 0.34, math.pi / 2, role='subject-axis')
-    add_line(strokes, 'composition', center_x, sy1 - (sy1 - sy0) * 0.18, (sx1 - sx0) * 0.82, 2.0, guide, 0.30, 0, role='shoulder-axis')
-    face_center_x = (fx0 + fx1) / 2
-    face_center_y = (fy0 + fy1) / 2
-    add_line(strokes, 'composition', face_center_x, face_center_y, (fy1 - fy0) * 0.95, 1.7, '#d8b49a', 0.34, math.pi / 2, role='face-centerline')
-    add_line(strokes, 'composition', face_center_x, fy0 + (fy1 - fy0) * 0.42, (fx1 - fx0) * 0.96, 1.5, '#d8b49a', 0.30, 0, role='eye-line')
-    add_line(strokes, 'composition', face_center_x, fy0 + (fy1 - fy0) * 0.72, (fx1 - fx0) * 0.70, 1.4, '#d8b49a', 0.26, 0, role='mouth-line')
-    points = [
-        (sx0 + (sx1 - sx0) * 0.15, sy0 + (sy1 - sy0) * 0.18),
-        (sx0 + (sx1 - sx0) * 0.45, sy0),
-        (sx0 + (sx1 - sx0) * 0.78, sy0 + (sy1 - sy0) * 0.15),
-        (sx1, sy0 + (sy1 - sy0) * 0.55),
-        (sx0 + (sx1 - sx0) * 0.88, sy1),
-        (sx0 + (sx1 - sx0) * 0.28, sy1),
-        (sx0, sy0 + (sy1 - sy0) * 0.63),
+    guide = '#a88f72'
+    fc_x = (fx0 + fx1) / 2
+    fc_y = (fy0 + fy1) / 2
+    fw, fh = fx1-fx0, fy1-fy0
+    sw, sh = sx1-sx0, sy1-sy0
+    add_line(strokes, 'composition', fc_x, fc_y, fh*.82, 1.7, guide, .30, math.pi/2,
+             role='face-center')
+    add_line(strokes, 'composition', fc_x, fy0+fh*.42, fw*.88, 1.5, guide, .28, 0,
+             role='eye-line')
+    add_line(strokes, 'composition', fc_x, fy0+fh*.72, fw*.58, 1.3, guide, .24, 0,
+             role='mouth-line')
+    add_line(strokes, 'composition',
+             sx0+sw*.52, sy0+sh*.78, sw*.72, 2.0, guide, .34, -0.06,
+             role='shoulder-gesture')
+    marks = [
+        (sx0+sw*.34, sy0+sh*.10, sw*.28, .55),
+        (sx0+sw*.57, sy0+sh*.11, sw*.30, -.15),
+        (sx0+sw*.72, sy0+sh*.28, sh*.25, 1.25),
+        (sx0+sw*.23, sy0+sh*.31, sh*.23, 1.88),
+        (sx0+sw*.67, sy0+sh*.60, sh*.25, 1.43),
+        (sx0+sw*.43, sy0+sh*.73, sw*.35, .02),
     ]
-    for first, second in zip(points, points[1:] + points[:1]):
-        mid_x = (first[0] + second[0]) / 2
-        mid_y = (first[1] + second[1]) / 2
-        add_line(
-            strokes, 'composition', mid_x, mid_y,
-            math.hypot(second[0] - first[0], second[1] - first[1]),
-            1.8, guide, 0.28,
-            math.atan2(second[1] - first[1], second[0] - first[0]),
-            role='envelope',
-        )
+    for x, y, length, angle in marks:
+        add_line(strokes, 'composition', x, y, length, 1.8, guide, .22, angle,
+                 role='contour-note')
 
 
-def phase_silhouette(strokes, image, background, subject_bbox, rng):
-    blurred = image.filter(ImageFilter.GaussianBlur(16))
-    pixels = blurred.load()
-    width, height = image.size
-    sx0, sy0, sx1, sy1 = subject_bbox
-    points = defaultdict(list)
-    step = 24
-    for y in range(step // 2, height, step):
-        for x in range(step // 2, width, step):
-            pixel = pixels[x, y]
-            category = region_class(pixel, background)
-            if category == 'background':
-                continue
-            if not (sx0 - step <= x <= sx1 + step and sy0 - step <= y <= sy1 + step) and color_distance(pixel, background) < 70:
-                continue
-            points[category].append((x, y, pixel))
-    last = None
-    for category in ['dark', 'neutral', 'ochre', 'blue', 'skin']:
-        bucket = points.get(category, [])
-        rng.shuffle(bucket)
-        ordered = nearest_order(bucket, start=last)
-        for x, y, pixel in ordered:
-            add_ellipse(strokes, 'silhouette', x, y, 15.5, 13.5, hexcolor(pixel), 0.90, role=category)
-            last = (x, y)
-
-
-def add_brush_pass(strokes, image, phase, background, rng, *, step, width, length, blur_radius):
+def broad_subject_pass(strokes, image, phase, background, subject_bbox, face_bbox, rng,
+                       *, step, length, brush_width, blur_radius, opacity,
+                       region_order=('garment','headwrap','face','subject')):
     source = image.filter(ImageFilter.GaussianBlur(blur_radius)) if blur_radius else image
     pixels = source.load()
-    raw_pixels = image.load()
-    canvas_width, canvas_height = image.size
-    points = defaultdict(list)
-    for y in range(step // 2, canvas_height, step):
-        for x in range(step // 2, canvas_width, step):
+    raw = image.load()
+    width, height = image.size
+    groups = defaultdict(list)
+    for y in range(step//2, height, step):
+        for x in range(step//2, width, step):
             pixel = pixels[x, y]
-            category = region_class(pixel, background)
-            angle, magnitude = gradient_angle(raw_pixels, x, y, canvas_width, canvas_height)
-            if category == 'background' and ((x // step + y // step) % 4):
+            region = semantic_region(x, y, pixel, background, subject_bbox, face_bbox)
+            if region == 'background':
                 continue
-            points[category].append((x, y, pixel, angle, magnitude))
+            angle, magnitude = gradient_angle(raw, x, y, width, height)
+            if magnitude < 4:
+                angle = {
+                    'headwrap': -0.12,
+                    'face': math.pi/2 * .72,
+                    'garment': math.pi/2 * .86,
+                    'subject': math.pi/2 * .7,
+                }.get(region, 0)
+            groups[region].append((x, y, pixel, angle, magnitude))
     last = None
-    for category in ['background', 'dark', 'neutral', 'ochre', 'blue', 'skin']:
-        bucket = points.get(category, [])
+    for region in region_order:
+        bucket = groups.get(region, [])
         rng.shuffle(bucket)
-        ordered = nearest_order(bucket, start=last)
+        ordered = ordered_local(bucket, start=last)
         for x, y, pixel, angle, magnitude in ordered:
-            local_length = length * (0.72 if magnitude > 25 else 1.0)
-            local_width = width * (0.82 if magnitude > 30 else 1.0)
-            add_line(
-                strokes, phase, x, y, local_length, local_width,
-                hexcolor(pixel), 0.86 if step > 7 else 0.90, angle,
-                role=category,
-            )
+            local_len = length * (.76 if magnitude > 24 else 1.0)
+            local_w = brush_width * (.78 if magnitude > 28 else 1.0)
+            add_line(strokes, phase, x, y, local_len, local_w, hexcolor(pixel), opacity,
+                     angle, line_cap='butt', role=region)
             last = (x, y)
+
+
+def phase_silhouette(strokes, image, background, subject_bbox, face_bbox, rng):
+    broad_subject_pass(
+        strokes, image, 'silhouette', background, subject_bbox, face_bbox, rng,
+        step=34, length=64, brush_width=31, blur_radius=18, opacity=.88,
+        region_order=('garment','headwrap','face','subject')
+    )
+    broad_subject_pass(
+        strokes, image, 'silhouette', background, subject_bbox, face_bbox, rng,
+        step=26, length=48, brush_width=23, blur_radius=12, opacity=.76,
+        region_order=('headwrap','face','garment','subject')
+    )
+
+
+def phase_light_shadow(strokes, image, background, subject_bbox, face_bbox, rng):
+    broad_subject_pass(
+        strokes, image, 'light_shadow', background, subject_bbox, face_bbox, rng,
+        step=18, length=38, brush_width=16, blur_radius=8, opacity=.84
+    )
+    broad_subject_pass(
+        strokes, image, 'light_shadow', background, subject_bbox, face_bbox, rng,
+        step=11, length=24, brush_width=10, blur_radius=4, opacity=.87,
+        region_order=('face','headwrap','garment','subject')
+    )
 
 
 def phase_face_structure(strokes, image, face_bbox, rng):
@@ -363,80 +320,138 @@ def phase_face_structure(strokes, image, face_bbox, rng):
     width, height = image.size
     fx0, fy0, fx1, fy1 = map(int, face_bbox)
     fx0, fy0 = max(2, fx0), max(2, fy0)
-    fx1, fy1 = min(width - 2, fx1), min(height - 2, fy1)
-    center_x = (fx0 + fx1) / 2
-    tone = hexcolor(pixels[int(center_x), int((fy0 + fy1) / 2)])
-    add_line(strokes, 'face_structure', center_x, (fy0 + fy1) / 2, (fy1 - fy0) * 0.88, 2.2, tone, 0.42, math.pi / 2, role='centerline')
-    add_line(strokes, 'face_structure', center_x, fy0 + (fy1 - fy0) * 0.42, (fx1 - fx0) * 0.90, 2.0, tone, 0.38, 0, role='eye-axis')
-    add_line(strokes, 'face_structure', center_x, fy0 + (fy1 - fy0) * 0.72, (fx1 - fx0) * 0.62, 1.8, tone, 0.34, 0, role='mouth-axis')
+    fx1, fy1 = min(width-2, fx1), min(height-2, fy1)
+    fw, fh = fx1-fx0, fy1-fy0
+    cx = (fx0+fx1)/2
+    tone = hexcolor(pixels[int(cx), int((fy0+fy1)/2)])
+    add_line(strokes, 'face_structure', cx, (fy0+fy1)/2, fh*.74, 1.5, tone, .34, math.pi/2,
+             role='face-center')
+    add_line(strokes, 'face_structure', cx, fy0+fh*.42, fw*.78, 1.4, tone, .30, 0,
+             role='eye-line')
+    add_line(strokes, 'face_structure', cx, fy0+fh*.70, fw*.50, 1.3, tone, .28, 0,
+             role='mouth-line')
     points = []
-    step = 5
-    for y in range(fy0, fy1, step):
-        for x in range(fx0, fx1, step):
+    for y in range(fy0, fy1, 7):
+        for x in range(fx0, fx1, 7):
             angle, magnitude = gradient_angle(pixels, x, y, width, height)
-            points.append((x, y, pixels[x, y], angle, magnitude))
+            points.append((x, y, pixels[x,y], angle, magnitude))
     rng.shuffle(points)
-    for x, y, pixel, angle, magnitude in tile_order(points, tile=54, face_bbox=face_bbox):
-        add_line(
-            strokes, 'face_structure', x, y,
-            6.4 if magnitude < 18 else 4.5,
-            3.0 if magnitude < 18 else 2.2,
-            hexcolor(pixel), 0.91, angle, role='face-plane',
-        )
+    groups = defaultdict(list)
+    tile = max(42, int(fw*.23))
+    for p in points:
+        groups[(int((p[0]-fx0)//tile), int((p[1]-fy0)//tile))].append(p)
+    for _, bucket in sorted(groups.items(), key=lambda kv: -sum(p[4] for p in kv[1])/max(1,len(kv[1]))):
+        for x, y, pixel, angle, magnitude in ordered_local(bucket):
+            add_line(
+                strokes, 'face_structure', x, y,
+                10.0 if magnitude < 14 else 6.5,
+                4.2 if magnitude < 14 else 2.8,
+                hexcolor(pixel), .90, angle, role='face-plane'
+            )
 
 
-def collect_detail_points(image, count, rng, face_bbox):
+def collect_detail_points(image, background, subject_bbox, face_bbox, count, rng):
     pixels = image.load()
     width, height = image.size
     candidates = []
-    for y in range(2, height - 2, 3):
-        for x in range(2, width - 2, 3):
-            angle, magnitude = gradient_angle(pixels, x, y, width, height)
-            if magnitude < 5:
+    fx0, fy0, fx1, fy1 = face_bbox
+    for y in range(2, height-2, 3):
+        for x in range(2, width-2, 3):
+            pixel = pixels[x,y]
+            region = semantic_region(x, y, pixel, background, subject_bbox, face_bbox)
+            if region == 'background':
                 continue
-            fx0, fy0, fx1, fy1 = face_bbox
-            bonus = 38 if fx0 <= x <= fx1 and fy0 <= y <= fy1 else 0
-            score = magnitude + bonus + rng.random() * 4
-            candidates.append((x, y, pixels[x, y], angle, score))
-    candidates.sort(key=lambda point: point[-1], reverse=True)
-    return tile_order(candidates[:count], tile=72, face_bbox=face_bbox)
+            angle, magnitude = gradient_angle(pixels, x, y, width, height)
+            if magnitude < 4:
+                continue
+            bonus = 34 if fx0 <= x <= fx1 and fy0 <= y <= fy1 else 0
+            score = magnitude + bonus + rng.random()*4
+            candidates.append((score, x, y, pixel, angle, region))
+    candidates.sort(reverse=True, key=lambda t:t[0])
+    selected = candidates[:count]
+    groups = defaultdict(list)
+    tile = 76
+    for item in selected:
+        _, x, y, *_ = item
+        groups[(x//tile, y//tile)].append(item)
+    ordered = []
+    def group_score(item):
+        _, vals = item
+        score = sum(v[0] for v in vals)/max(1,len(vals))
+        if any(v[-1]=='face' for v in vals):
+            score += 250
+        return score
+    for _, vals in sorted(groups.items(), key=group_score, reverse=True):
+        points = [(v[1],v[2],v) for v in vals]
+        for _,_,v in ordered_local(points):
+            ordered.append(v)
+    return ordered
 
 
-def phase_detail(strokes, image, count, rng, face_bbox):
-    for x, y, pixel, angle, _ in collect_detail_points(image, count, rng, face_bbox):
-        add_line(strokes, 'detail', x, y, 3.4, 1.7, hexcolor(pixel), 0.94, angle, role='detail')
+def phase_detail(strokes, image, background, subject_bbox, face_bbox, count, rng):
+    for score, x, y, pixel, angle, region in collect_detail_points(
+        image, background, subject_bbox, face_bbox, count, rng
+    ):
+        add_line(
+            strokes, 'detail', x, y,
+            4.2 if region=='face' else 5.0,
+            1.8 if region=='face' else 2.1,
+            hexcolor(pixel), .94, angle, role=region
+        )
 
 
-def collect_residual(reference, rendered, count, face_bbox):
-    reference_pixels = reference.load()
-    output_pixels = rendered.load()
+def collect_residual(reference, rendered, background, subject_bbox, face_bbox, count):
+    rp = reference.load()
+    op = rendered.load()
     width, height = reference.size
+    fx0, fy0, fx1, fy1 = face_bbox
     points = []
-    for y in range(2, height - 2, 3):
-        for x in range(2, width - 2, 3):
-            ref = reference_pixels[x, y]
-            out = output_pixels[x, y]
-            error = math.sqrt(sum((ref[i] - out[i]) ** 2 for i in range(3)) / 3)
-            angle, magnitude = gradient_angle(reference_pixels, x, y, width, height)
-            fx0, fy0, fx1, fy1 = face_bbox
+    for y in range(2, height-2, 3):
+        for x in range(2, width-2, 3):
+            ref = rp[x,y]
+            region = semantic_region(x, y, ref, background, subject_bbox, face_bbox)
+            if region == 'background':
+                continue
+            out = op[x,y]
+            err = math.sqrt(sum((ref[i]-out[i])**2 for i in range(3))/3)
+            angle, magnitude = gradient_angle(rp, x, y, width, height)
             if fx0 <= x <= fx1 and fy0 <= y <= fy1:
-                error *= 1.15
-            score = error * (1 + min(magnitude, 80) / 260)
-            if score > 4:
-                points.append((x, y, ref, angle, score))
-    points.sort(key=lambda point: point[-1], reverse=True)
-    return tile_order(points[:count], tile=72, face_bbox=face_bbox)
+                err *= 1.20
+            score = err * (1 + min(magnitude,80)/240)
+            if score > 3:
+                points.append((score,x,y,ref,angle,region))
+    points.sort(reverse=True, key=lambda t:t[0])
+    selected = points[:count]
+    groups = defaultdict(list)
+    tile=68
+    for p in selected:
+        groups[(p[1]//tile,p[2]//tile)].append(p)
+    ordered=[]
+    for _, vals in sorted(groups.items(), key=lambda kv:max(v[0] for v in kv[1]), reverse=True):
+        pts=[(v[1],v[2],v) for v in vals]
+        for _,_,v in ordered_local(pts):
+            ordered.append(v)
+    return ordered
 
 
-def phase_finish(strokes, image, background, count, face_bbox):
-    rendered = render_strokes(strokes, *image.size, background)
-    for x, y, pixel, angle, _ in collect_residual(image, rendered, count, face_bbox):
-        add_line(strokes, 'finish', x, y, 2.3, 1.2, hexcolor(pixel), 0.97, angle, role='correction')
-    return render_strokes(strokes, *image.size, background)
+def phase_finish(strokes, image, background_hex, background_rgb, subject_bbox, face_bbox, count):
+    rendered = render_strokes(strokes, *image.size, background_hex)
+    for score, x, y, pixel, angle, region in collect_residual(
+        image, rendered, background_rgb, subject_bbox, face_bbox, count
+    ):
+        add_line(
+            strokes, 'finish', x, y,
+            2.8 if region=='face' else 3.4,
+            1.2 if region=='face' else 1.45,
+            hexcolor(pixel), .98, angle, role=region
+        )
+    return render_strokes(strokes, *image.size, background_hex)
 
 
 def main():
-    parser = argparse.ArgumentParser(description='参照画像から、人が絵を描く6工程の順でストロークを生成する')
+    parser = argparse.ArgumentParser(
+        description='参照画像から、画家のブロックインに近い6工程でストロークを生成する'
+    )
     parser.add_argument('input')
     parser.add_argument('--output', default='strokes.generated.json')
     parser.add_argument('--preview', default='preview.png')
@@ -444,8 +459,8 @@ def main():
     parser.add_argument('--width', type=int, default=864)
     parser.add_argument('--height', type=int, default=1024)
     parser.add_argument('--seed', type=int, default=20260908)
-    parser.add_argument('--detail', type=int, default=45000)
-    parser.add_argument('--finish', type=int, default=30000)
+    parser.add_argument('--detail', type=int, default=26000)
+    parser.add_argument('--finish', type=int, default=14000)
     parser.add_argument('--checkpoint-dir', default=None)
     args = parser.parse_args()
 
@@ -461,79 +476,76 @@ def main():
     if checkpoint_dir:
         checkpoint_dir.mkdir(parents=True, exist_ok=True)
 
-    def save_checkpoint(name):
+    def checkpoint(stage, filename):
+        rendered = render_strokes(strokes, args.width, args.height, background)
         if checkpoint_dir:
-            render_strokes(strokes, args.width, args.height, background).save(checkpoint_dir / f'{name}.png')
+            rendered.save(checkpoint_dir/filename)
+        checkpoints.append({'stage':stage,'stroke_count':len(strokes), **image_metrics(image,rendered)})
+        return rendered
 
     phase_composition(strokes, subject_bbox, face_bbox)
-    checkpoints.append({'stage': 'composition', 'stroke_count': len(strokes)})
-    save_checkpoint('01-composition')
+    checkpoint('composition','01-composition.png')
 
-    phase_silhouette(strokes, image, background_rgb, subject_bbox, rng)
-    checkpoints.append({'stage': 'silhouette', 'stroke_count': len(strokes)})
-    save_checkpoint('02-silhouette')
+    phase_silhouette(strokes, image, background_rgb, subject_bbox, face_bbox, rng)
+    checkpoint('silhouette','02-silhouette.png')
 
-    add_brush_pass(strokes, image, 'light_shadow', background_rgb, rng, step=12, width=10.5, length=16.0, blur_radius=7)
-    add_brush_pass(strokes, image, 'light_shadow', background_rgb, rng, step=6, width=5.2, length=8.0, blur_radius=2.5)
-    checkpoints.append({'stage': 'light_shadow', 'stroke_count': len(strokes)})
-    save_checkpoint('03-light-shadow')
+    phase_light_shadow(strokes, image, background_rgb, subject_bbox, face_bbox, rng)
+    checkpoint('light_shadow','03-light-shadow.png')
 
     phase_face_structure(strokes, image, face_bbox, rng)
-    checkpoints.append({'stage': 'face_structure', 'stroke_count': len(strokes)})
-    save_checkpoint('04-face-structure')
+    checkpoint('face_structure','04-face-structure.png')
 
-    phase_detail(strokes, image, args.detail, rng, face_bbox)
-    checkpoints.append({'stage': 'detail', 'stroke_count': len(strokes)})
-    save_checkpoint('05-detail')
+    phase_detail(strokes, image, background_rgb, subject_bbox, face_bbox, args.detail, rng)
+    checkpoint('detail','05-detail.png')
 
-    rendered = phase_finish(strokes, image, background, args.finish, face_bbox)
-    checkpoints.append({'stage': 'finish', 'stroke_count': len(strokes), **image_metrics(image, rendered)})
+    rendered = phase_finish(
+        strokes, image, background, background_rgb, subject_bbox, face_bbox, args.finish
+    )
     if checkpoint_dir:
-        rendered.save(checkpoint_dir / '06-finish.png')
+        rendered.save(checkpoint_dir/'06-finish.png')
+    checkpoints.append({'stage':'finish','stroke_count':len(strokes), **image_metrics(image,rendered)})
 
     phases = [
-        {'id': 'composition', 'label': '1. 構図'},
-        {'id': 'silhouette', 'label': '2. シルエット'},
-        {'id': 'light_shadow', 'label': '3. 明暗の面'},
-        {'id': 'face_structure', 'label': '4. 顔構造'},
-        {'id': 'detail', 'label': '5. 細部'},
-        {'id': 'finish', 'label': '6. 仕上げ'},
+        {'id':'composition','label':'1. 構図'},
+        {'id':'silhouette','label':'2. 大きな形'},
+        {'id':'light_shadow','label':'3. 明暗の面'},
+        {'id':'face_structure','label':'4. 顔構造'},
+        {'id':'detail','label':'5. 細部'},
+        {'id':'finish','label':'6. 仕上げ'},
     ]
-    for index, stroke in enumerate(strokes, 1):
-        stroke['id'] = index
+    for i, stroke in enumerate(strokes,1):
+        stroke['id']=i
 
     document = {
-        'metadata': {
-            'slug': 'human-painting-order',
-            'title': '人間の描画順を模した参照ガイド描画',
-            'seed': args.seed,
-            'source_mode': 'reference-guided-human-order',
-            'stroke_count': len(strokes),
-            'subject_bbox': [round(value, 2) for value in subject_bbox],
-            'face_bbox': [round(value, 2) for value in face_bbox],
-            'quality_metrics': checkpoints[-1],
-            'phase_order': [phase['id'] for phase in phases],
+        'metadata':{
+            'slug':'painterly-process-v2',
+            'title':'画家のブロックインに近い描画順',
+            'seed':args.seed,
+            'source_mode':'reference-guided-painterly-v2',
+            'stroke_count':len(strokes),
+            'subject_bbox':[round(v,2) for v in subject_bbox],
+            'face_bbox':[round(v,2) for v in face_bbox],
+            'quality_metrics':checkpoints[-1],
+            'phase_order':[p['id'] for p in phases],
+            'background_policy':'toned-ground-no-progress',
         },
-        'canvas': {
-            'width': args.width,
-            'height': args.height,
-            'background': background,
-        },
-        'phases': phases,
-        'strokes': strokes,
+        'canvas':{'width':args.width,'height':args.height,'background':background},
+        'phases':phases,
+        'strokes':strokes,
     }
-    Path(args.output).write_text(json.dumps(document, separators=(',', ':')), encoding='utf-8')
+    Path(args.output).write_text(json.dumps(document,separators=(',',':')),encoding='utf-8')
     rendered.save(args.preview)
-    Path(args.metrics).write_text(
-        json.dumps({'checkpoints': checkpoints}, ensure_ascii=False, indent=2),
-        encoding='utf-8',
-    )
+    Path(args.metrics).write_text(json.dumps({'checkpoints':checkpoints},ensure_ascii=False,indent=2),encoding='utf-8')
     print(json.dumps({
-        'strokes': len(strokes),
-        'subject_bbox': subject_bbox,
-        'face_bbox': face_bbox,
-        'quality': checkpoints[-1],
-    }, ensure_ascii=False))
+        'strokes':len(strokes),
+        'subject_bbox':subject_bbox,
+        'face_bbox':face_bbox,
+        'quality':checkpoints[-1],
+        'phase_counts':{
+            phase:sum(1 for s in strokes if s['phase']==phase)
+            for phase in [p['id'] for p in phases]
+        },
+    },ensure_ascii=False))
 
 
 if __name__ == '__main__':
