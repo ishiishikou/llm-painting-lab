@@ -4,6 +4,7 @@ on:
   pull_request:
     paths:
       - 'tools/generate_stroke_candidates_v9.py'
+      - 'tools/generate_semantic_passages_v9.py'
       - 'vision/v9-state.json'
       - 'docs/stroke-vocabulary-v9.md'
       - '.github/workflows/stroke-vocabulary-v9.yml'
@@ -28,7 +29,7 @@ jobs:
 
       - name: Verify v9 intent contains no authored coordinates
         run: |
-          python -m py_compile tools/generate_stroke_candidates_v9.py
+          python -m py_compile tools/generate_stroke_candidates_v9.py tools/generate_semantic_passages_v9.py
           python - <<'PY'
           import json
           from pathlib import Path
@@ -83,9 +84,20 @@ jobs:
 
       - name: Propose coordinate-free v9 candidates
         run: |
-          python tools/generate_stroke_candidates_v9.py \
-            artifact/v7/strokes.generated.json vision/v9-state.json \
-            --out-dir artifact/v9
+          mode=$(python - <<'PY'
+          import json
+          print(json.load(open('vision/v9-state.json'))['intent_card'].get('candidate_mode','passage'))
+          PY
+          )
+          if [ "$mode" = "semantic_passage" ]; then
+            python tools/generate_semantic_passages_v9.py \
+              artifact/v7/strokes.generated.json vision/v9-state.json \
+              --out-dir artifact/v9
+          else
+            python tools/generate_stroke_candidates_v9.py \
+              artifact/v7/strokes.generated.json vision/v9-state.json \
+              --out-dir artifact/v9
+          fi
           cp vision/v9-state.json artifact/v9/v9-state.json
           cp docs/stroke-vocabulary-v9.md artifact/v9/stroke-vocabulary-v9.md
 
