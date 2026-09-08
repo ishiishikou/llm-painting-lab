@@ -56,6 +56,27 @@ def focus_ok(c, face, focus):
     return lo <= ry <= hi
 
 
+def color_family_ok(s, intent):
+    family = intent.get("color_family")
+    if not family:
+        return True
+    color = s.get("color")
+    if not color:
+        return False
+    try:
+        p = base.parse_hex(color)
+    except Exception:
+        return False
+    if family == "skin":
+        return base.skin(p)
+    if family == "skin_or_shadow":
+        if base.skin(p):
+            return True
+        r, g, b = p
+        return r >= g >= b and 35 <= r <= 155 and max(p) - min(p) >= 8
+    return True
+
+
 def eligible(s, intent, face):
     if s.get("phase") not in set(intent.get("source_phases", ["face_structure"])):
         return False
@@ -68,6 +89,8 @@ def eligible(s, intent, face):
     if brush in set(intent.get("avoid_brushes", [])):
         return False
     if s.get("role") in {"face-center", "eye-line", "mouth-line"}:
+        return False
+    if not color_family_ok(s, intent):
         return False
     return focus_ok(center(s), face, intent.get("focus", "whole_face"))
 
@@ -131,8 +154,6 @@ def build_candidates(source, state):
     rejected = set(state.get("rejected_bundle_ids", []))
     accepted_names = set(state.get("accepted_bundle_ids", []))
 
-    # Seed from spatially diverse existing strokes. This chooses only among exact v7
-    # locations; the reviewer never provides coordinates.
     seeds = []
     first = min(pool, key=lambda s: int(s.get("id", 0)))
     seeds.append(first)
@@ -168,7 +189,6 @@ def build_candidates(source, state):
     if len(candidates) < wanted:
         raise SystemExit(f"not enough semantic candidates: {len(candidates)} / {wanted}")
 
-    # Choose a visually diverse set by spatial separation only. No reference pixels.
     chosen = [candidates[0]]
     remain = candidates[1:]
     while len(chosen) < wanted and remain:
@@ -182,7 +202,6 @@ def build_candidates(source, state):
 
 
 def reconstruct_accepted(source, state, current_pool):
-    """Reconstruct accepted work from persisted source IDs, independent of new focus."""
     source_by_id = {int(s.get("id", 0)): s for s in source["strokes"]}
     persisted = persisted_accepted_ids(state)
     if persisted:
@@ -191,7 +210,6 @@ def reconstruct_accepted(source, state, current_pool):
             raise SystemExit(f"persisted accepted source ids missing: {missing[:12]}")
         return [copy.deepcopy(source_by_id[sid]) for sid in sorted(persisted)]
 
-    # Legacy fallback for states created before accepted_passages was introduced.
     accepted = []
     missing = []
     by_id = {int(s.get("id", 0)): s for s in current_pool}
