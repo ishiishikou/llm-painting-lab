@@ -10,7 +10,7 @@ permissions:
 jobs:
   render-reference:
     runs-on: ubuntu-latest
-    timeout-minutes: 15
+    timeout-minutes: 20
     steps:
       - name: Checkout
         uses: actions/checkout@v4
@@ -24,7 +24,7 @@ jobs:
         run: |
           sudo apt-get update
           sudo apt-get install -y fonts-noto-cjk ffmpeg
-          python -m pip install --disable-pip-version-check pillow imageio imageio-ffmpeg
+          python -m pip install --disable-pip-version-check pillow imageio imageio-ffmpeg numpy
 
       - name: Download public-domain reference
         shell: bash
@@ -39,62 +39,99 @@ jobs:
           fi
           test -s reference.jpg
 
-      - name: Generate and iteratively repair reference-guided strokes
+      - name: Generate strokes in actual human painting order
         run: |
-          mkdir -p artifact/src
-          python tools/reference_to_strokes.py reference.jpg \
+          mkdir -p artifact/src artifact/checkpoints
+          python tools/reference_to_human_strokes.py reference.jpg \
             --output artifact/strokes.generated.json \
             --preview artifact/preview.png \
             --metrics artifact/metrics.json \
+            --checkpoint-dir artifact/checkpoints \
             --width 864 \
             --height 1024 \
-            --detail 24000 \
-            --repair 18000
-
-      - name: Reorder strokes into painter-like working order
-        run: |
-          python tools/reorder_painterly.py artifact/strokes.generated.json \
-            --output artifact/strokes.painterly.json \
-            --tile-size 96
+            --detail 45000 \
+            --finish 30000
+          cp artifact/strokes.generated.json artifact/strokes.painterly.json
 
       - name: Render slow replay video with Japanese progress text
         run: |
-          python tools/render_replay_video.py artifact/strokes.painterly.json \
-            --output artifact/replay-painterly.mp4 \
-            --seconds 75 \
-            --fps 12 \
+          python tools/render_replay_video.py artifact/strokes.generated.json \
+            --output artifact/replay-human-order.mp4 \
+            --seconds 82 \
+            --fps 10 \
             --width 640
 
-      - name: Verify generated documents and repair improvement
+      - name: Verify the six stages are real ordered stroke blocks
         run: |
           python - <<'PY'
           import json
+          from collections import Counter
           from pathlib import Path
 
-          generated = json.loads(Path('artifact/strokes.generated.json').read_text())
-          painterly = json.loads(Path('artifact/strokes.painterly.json').read_text())
-          metrics = json.loads(Path('artifact/metrics.json').read_text())['history']
-          count = len(generated['strokes'])
-          painterly_count = len(painterly['strokes'])
-          print(f'generated strokes: {count}')
-          print(f'painterly strokes: {painterly_count}')
-          print(json.dumps(metrics, ensure_ascii=False, indent=2))
+          data = json.loads(Path('artifact/strokes.generated.json').read_text())
+          strokes = data['strokes']
+          expected = [
+              'composition',
+              'silhouette',
+              'light_shadow',
+              'face_structure',
+              'detail',
+              'finish',
+          ]
 
-          if count < 120000:
-              raise SystemExit('ストローク数が12万未満です')
-          if painterly_count != count:
-              raise SystemExit('並べ替えでストロークが欠落しています')
-          if any('image' in str(stroke).lower() for stroke in painterly['strokes']):
-              raise SystemExit('painterlyストローク内に画像参照が含まれています')
+          actual = []
+          for stroke in strokes:
+              phase = stroke['phase']
+              if not actual or actual[-1] != phase:
+                  actual.append(phase)
 
-          base = metrics[0]
+          counts = Counter(stroke['phase'] for stroke in strokes)
+          print('phase order:', actual)
+          print('phase counts:', dict(counts))
+          print('total strokes:', len(strokes))
+
+          if actual != expected:
+              raise SystemExit(f'6工程の実描画順が不正です: {actual}')
+          if data['metadata'].get('phase_order') != expected:
+              raise SystemExit('metadata.phase_order が6工程と一致しません')
+          if len(strokes) < 90000:
+              raise SystemExit('ストローク数が9万未満です')
+          if counts['composition'] > 100:
+              raise SystemExit('構図工程が細かすぎます')
+          if counts['silhouette'] < 400:
+              raise SystemExit('シルエット工程の大きな形が不足しています')
+          if counts['light_shadow'] < 12000:
+              raise SystemExit('明暗の面工程が不足しています')
+          if counts['face_structure'] < 2000:
+              raise SystemExit('顔構造工程が不足しています')
+          if counts['detail'] < 40000:
+              raise SystemExit('細部工程が不足しています')
+          if counts['finish'] < 25000:
+              raise SystemExit('仕上げ工程が不足しています')
+          if any('image' in str(stroke).lower() for stroke in strokes):
+              raise SystemExit('生成ストローク内に画像参照が含まれています')
+
+          metrics = json.loads(Path('artifact/metrics.json').read_text())['checkpoints']
           final = metrics[-1]
-          if final['psnr'] <= base['psnr']:
-              raise SystemExit('残差修正後にPSNRが改善していません')
-          if final['mae'] >= base['mae']:
-              raise SystemExit('残差修正後にMAEが改善していません')
+          print('final metrics:', final)
+          if final['mae'] >= 15:
+              raise SystemExit('完成画像のMAEが大きすぎます')
+          if final['psnr'] <= 20:
+              raise SystemExit('完成画像のPSNRが低すぎます')
 
-          if not Path('artifact/replay-painterly.mp4').exists():
+          expected_checkpoints = [
+              '01-composition.png',
+              '02-silhouette.png',
+              '03-light-shadow.png',
+              '04-face-structure.png',
+              '05-detail.png',
+              '06-finish.png',
+          ]
+          for name in expected_checkpoints:
+              if not (Path('artifact/checkpoints') / name).exists():
+                  raise SystemExit(f'チェックポイントがありません: {name}')
+
+          if not Path('artifact/replay-human-order.mp4').exists():
               raise SystemExit('リプレイ動画が生成されていません')
           PY
 
@@ -104,36 +141,44 @@ jobs:
           cp src/app.js src/brushes.js artifact/src/
           cp strokes.json artifact/strokes.json
           gzip -k artifact/strokes.generated.json
-          gzip -k artifact/strokes.painterly.json
           cat > artifact/README.txt <<'TXT'
-          参照画像ガイド描画の成果物です。
+          人間の描画順を模した参照画像ガイド描画の成果物です。
+
+          今回は、完成後にストロークを並べ替えているのではありません。
+          ストローク生成そのものを以下の6工程に分離しています。
+
+          1. 構図
+          2. シルエット
+          3. 明暗の面
+          4. 顔構造
+          5. 細部
+          6. 仕上げ
+
+          checkpoints/:
+            各工程が終わった時点の画像です。
+            実際に上記の順で絵が立ち上がっていることを確認できます。
 
           preview.png:
-            864x1024 で生成した完成プレビュー。
+            最終完成画像。
 
           strokes.generated.json:
-            品質優先の元ストローク列。
+            6工程の順で生成された全ストロークデータ。
 
-          strokes.painterly.json:
-            同じストロークを、人が絵を進めるように
-            「大きな形 → 明暗 → 構造 → 特徴部 → 見直し → 仕上げ」へ再構成し、
-            さらに領域ごとに局所的に作業する順へ並べ替えたもの。
-
-          replay-painterly.mp4:
-            日本語フォントを明示して生成した、進捗表示付きのゆっくり描画動画。
+          replay-human-order.mp4:
+            日本語進捗表示付きのゆっくり描画リプレイ。
 
           metrics.json:
-            初期描画 → 残差修正1 → 残差修正2 の品質指標。
+            工程ごとのストローク数と最終品質指標。
 
-          再生方法:
-            このフォルダを HTTP サーバーで公開し、
-            /?mode=painterly を開いてください。
+          Webビューア:
+            このフォルダをHTTPサーバーで公開し、
+            /?mode=generated を開くと同じストロークを再生できます。
           TXT
 
       - name: Upload demo artifact
         uses: actions/upload-artifact@v4
         with:
-          name: reference-guided-demo
+          name: human-painting-order-demo
           path: artifact/
           if-no-files-found: error
           retention-days: 14
