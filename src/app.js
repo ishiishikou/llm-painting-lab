@@ -1,5 +1,4 @@
 import { applyStroke } from './brushes.js';
-import { createPortraitDocument } from './scene.js';
 
 const canvas = document.querySelector('#painting');
 const ctx = canvas.getContext('2d', { alpha: false });
@@ -104,12 +103,10 @@ function exportPng() {
 
 async function loadDocument() {
   const params = new URLSearchParams(location.search);
-  if (params.get('mode') === 'generated') {
-    const response = await fetch('./strokes.generated.json', { cache: 'no-store' });
-    if (!response.ok) throw new Error(`strokes.generated.json の読み込みに失敗しました: ${response.status}`);
-    return response.json();
-  }
-  return createPortraitDocument();
+  const filename = params.get('mode') === 'generated' ? 'strokes.generated.json' : 'strokes.json';
+  const response = await fetch(`./${filename}`, { cache: 'no-store' });
+  if (!response.ok) throw new Error(`${filename} の読み込みに失敗しました: ${response.status}`);
+  return response.json();
 }
 
 async function init() {
