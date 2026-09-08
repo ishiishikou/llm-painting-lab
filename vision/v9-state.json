@@ -1,6 +1,6 @@
 {
-  "version": 6,
-  "review_round": 10,
+  "version": 7,
+  "review_round": 11,
   "frozen_base_phases": ["silhouette", "light_shadow"],
   "accepted_bundle_ids": [
     "semantic-eye_band-3189-75",
@@ -27,29 +27,30 @@
     }
   ],
   "rejected_bundle_ids": [
-    "semantic-lower_face-2491-75",
-    "semantic-lower_face-3516-75",
-    "semantic-lower_face-5181-75",
-    "semantic-lower_face-3381-75",
-    "semantic-lower_face-4652-75"
+    "semantic-eye_band-5589-24",
+    "semantic-eye_band-8106-24",
+    "semantic-eye_band-6272-24",
+    "semantic-eye_band-6968-24",
+    "semantic-eye_band-9620-24",
+    "semantic-eye_band-7034-24"
   ],
   "intent_card": {
     "region": "face",
-    "focus": "eye_band",
-    "goal": "大きな顔構造passageを保持したまま、v7 detailの既存ストロークから眼球・瞼・眼窩の関係を少数のまとまりで補い、白い記号ではなく視線として読めるようにする",
+    "focus": "whole_face",
+    "goal": "既に採用した目・鼻・口周辺の顔構造を保持しつつ、v7で実際に使われた顔構造ストロークを大きめの一仕事単位で足し、細部へ行く前に顔全体を立体として成立させる",
     "candidate_mode": "semantic_passage",
     "candidate_count": 6,
-    "source_phases": ["detail"],
-    "min_strokes_per_candidate": 18,
-    "max_strokes_per_candidate": 30,
+    "source_phases": ["face_structure"],
+    "min_strokes_per_candidate": 180,
+    "max_strokes_per_candidate": 240,
     "avoid_brushes": ["line", "mixerBrush", "smudgeBrush", "glaze"],
     "avoid": [
       "座標をAIが直接指定する",
-      "白目を棒や点として強調する",
-      "閉じた輪郭記号として目を描く",
-      "顔全体へ均等に細線を散らす",
+      "採用済みストロークを候補で再度上塗りする",
+      "白目や口を記号的な細線で完成させようとする",
+      "細部工程へ早く進む",
       "候補が出たからという理由だけで採用する"
     ],
-    "review_note": "round 9ではEだけが実際の口・鼻下周辺へ作用し、上唇から鼻下のつながりをわずかに整理した。MAE改善は小さいが、B/Fは顎下・首へ白黒の異物を作り、C/Dは顔外側、Aは頬外側だったため却下。大きな面はここで一旦止め、目の重要細部を18〜30筆のsemantic passageで試す。"
+    "review_note": "round 10のdetail候補A〜Fはすべて長さ約5.4px・幅2.2pxの短いvariableBrush 24本で、Bは目付近に粒状の斑点を作り、Eは変化がほぼ見えず、他は鼻・口・耳側など目的外だったため全却下。detailで救済する前にface_structure自体を十分成立させる。accepted_passagesはsource_stroke_idsを正として保持し、今後の候補は採用済み線と重複させない。"
   }
 }
