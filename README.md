@@ -1,14 +1,14 @@
 # llm-painting-lab
 
-A small experimental environment for testing how far an LLM can improve visual output through better tools, persistent state, and iterative feedback.
+LLMに与えるプロンプト、ツール、状態保持、反復フィードバックの設計によって、視覚的なアウトプット品質をどこまで引き上げられるかを検証するための実験用リポジトリです。
 
-The goal is **not** a fair benchmark between models. The goal is to see how much a weaker or cheaper model can close the gap to a stronger model when the environment does more of the scaffolding.
+目的は、モデル同士を同一条件で公平にベンチマークすることではありません。より弱い／安価なモデルでも、実行環境側で十分な足場を与えることで、より上位のモデルのアウトプットへどこまで近づけられるかを確認します。
 
-## Current MVP
+## 現在のMVP
 
-The browser app replays an ordered list of logical brush strokes from `strokes.json` onto an HTML Canvas.
+ブラウザ上で `strokes.json` に記録された論理ブラシストロークを、順番どおり HTML Canvas に描画します。
 
-Supported logical brushes:
+現在利用できる論理ブラシ:
 
 - `line`
 - `curve`
@@ -16,37 +16,44 @@ Supported logical brushes:
 - `softDab`
 - `dryBrush`
 
-The dry brush is deterministic when given a seed, so the same stroke document reproduces the same output.
+`dryBrush` は seed を指定すれば決定論的に再現できるため、同じストローク文書から同じ描画結果を再現できます。
 
-## Guardrails
+## 制約
 
-This first experiment deliberately forbids raster shortcuts:
+最初の実験では、完成画像を裏で読み込むような近道を意図的に禁止します。
 
-- no source PNG/JPEG is loaded into the canvas
-- no image URL is allowed in the stroke document
-- no texture bitmap is allowed in the stroke document
-- output is reconstructed only from ordered stroke data
+- 元画像の PNG/JPEG を Canvas に読み込まない
+- ストローク文書内に画像URLを持たせない
+- ストローク文書内にビットマップテクスチャを持たせない
+- 出力は、順序付きストロークデータだけから再構築する
 
-`npm run validate` checks the document structure and rejects common raster/image reference keys.
+`npm run validate` でストローク文書の構造を検証し、代表的な画像参照用キーが含まれていればエラーにします。
 
-## Run locally
+## ローカル実行
 
-Requires Node.js 20+.
+Node.js 20 以上が必要です。
 
 ```bash
 npm run validate
 npm run serve
 ```
 
-Open:
+ブラウザで以下を開きます。
 
 ```text
 http://127.0.0.1:8000
 ```
 
-The UI supports play, pause, one-stroke stepping, reset, speed control, and PNG export.
+UIでは以下を操作できます。
 
-## Repository structure
+- 再生
+- 一時停止
+- 1ストロークずつ進める
+- リセット
+- 再生速度変更
+- PNG出力
+
+## リポジトリ構成
 
 ```text
 .
@@ -62,22 +69,28 @@ The UI supports play, pause, one-stroke stepping, reset, speed control, and PNG 
 └── .github/workflows/validate.yml
 ```
 
-## Intended iteration loop
+## 想定する反復ループ
 
-The next stage is not simply to increase the stroke count. It is to make the model operate in an explicit feedback loop:
+次の段階では、単にストローク数を増やすのではなく、モデルを明示的なフィードバックループの中で動かします。
 
 ```text
-Plan
-  -> generate/update strokes
-  -> render
-  -> inspect the rendered result
-  -> critique the largest visible defect
-  -> add corrective strokes
-  -> render again
+計画
+  -> ストロークを生成／更新
+  -> レンダリング
+  -> 描画結果を確認
+  -> 最も大きな見た目上の問題を批評
+  -> 修正ストロークを追加
+  -> 再レンダリング
 ```
 
-Later stages can add checkpoints, region-level scoring, separate painter/critic roles, persistent evaluation state, and automated repair passes.
+その後、以下を追加できます。
 
-## Experimental principle
+- チェックポイント保存
+- 領域単位の評価
+- Painter / Critic の役割分離
+- 評価状態の永続化
+- 自動修正パス
 
-The environment should carry as much mechanical burden as possible so the model can spend inference on high-level visual decisions rather than raw pixel manipulation.
+## 実験上の考え方
+
+環境側で機械的な負担をできるだけ引き受け、モデルが生のピクセル操作ではなく、構図・明暗・色・形状・修正方針といった高レベルの視覚判断に推論資源を使える状態を作ります。
