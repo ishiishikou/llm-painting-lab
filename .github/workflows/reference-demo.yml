@@ -36,26 +36,39 @@ jobs:
           fi
           test -s reference.jpg
 
-      - name: Generate reference-guided strokes
+      - name: Generate and iteratively repair reference-guided strokes
         run: |
           mkdir -p artifact/src
           python tools/reference_to_strokes.py reference.jpg \
             --output artifact/strokes.generated.json \
             --preview artifact/preview.png \
-            --detail 28000
+            --metrics artifact/metrics.json \
+            --detail 28000 \
+            --repair 20000
 
-      - name: Verify generated document
+      - name: Verify generated document and repair improvement
         run: |
           python - <<'PY'
           import json
           from pathlib import Path
+
           data = json.loads(Path('artifact/strokes.generated.json').read_text())
+          metrics = json.loads(Path('artifact/metrics.json').read_text())['history']
           count = len(data['strokes'])
           print(f'generated strokes: {count}')
-          if count < 40000:
-              raise SystemExit('ストローク数が想定より少なすぎます')
+          print(json.dumps(metrics, ensure_ascii=False, indent=2))
+
+          if count < 120000:
+              raise SystemExit('ストローク数が12万未満です')
           if any('image' in str(stroke).lower() for stroke in data['strokes']):
               raise SystemExit('生成ストローク内に画像参照が含まれています')
+
+          base = metrics[0]
+          final = metrics[-1]
+          if final['psnr'] <= base['psnr']:
+              raise SystemExit('残差修正後にPSNRが改善していません')
+          if final['mae'] >= base['mae']:
+              raise SystemExit('残差修正後にMAEが改善していません')
           PY
 
       - name: Package replay viewer
@@ -73,6 +86,10 @@ jobs:
           strokes.generated.json:
             Canvas が再生する順序付きストロークデータ。
             完成画像を Canvas に貼り付ける方式ではありません。
+
+          metrics.json:
+            初期描画 → 残差修正1 → 残差修正2 の品質指標。
+            参照画像との MAE / RMSE / PSNR / エッジ誤差を記録します。
 
           再生方法:
             このフォルダを HTTP サーバーで公開し、
