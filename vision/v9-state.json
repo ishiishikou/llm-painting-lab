@@ -1,27 +1,34 @@
 {
-  "version": 2,
-  "review_round": 3,
-  "frozen_base_phases": ["silhouette", "light_shadow"],
+  "version": 3,
+  "review_round": 4,
+  "frozen_base_phases": ["silhouette", "light_shadow", "face_structure"],
   "accepted_bundle_ids": [],
-  "rejected_bundle_ids": ["load-88", "micro-0098", "micro-0066"],
+  "rejected_bundle_ids": [
+    "load-88",
+    "micro-0098",
+    "micro-0066",
+    "passage-0099",
+    "passage-0096",
+    "passage-0094"
+  ],
   "intent_card": {
     "region": "face",
     "focus": "whole_face",
-    "goal": "大きな顔の面を壊さず、v7で実際に描けていた局所的な線のまとまりを一仕事単位で足して、顔として読める構造を作る",
+    "goal": "v7で既に成立していた顔構造はそのまま利用し、AIは参照画と現在画を見て、人なら今ここへ足すと判断できる詳細線のpassageだけを選ぶ",
     "candidate_mode": "passage",
-    "candidate_count": 3,
-    "preferred_families": ["structure", "plane"],
-    "source_phases": ["face_structure", "detail"],
-    "min_strokes_per_candidate": 14,
-    "max_strokes_per_candidate": 24,
-    "avoid_brushes": ["line", "mixerBrush", "smudgeBrush"],
+    "candidate_count": 6,
+    "preferred_families": ["structure", "accent"],
+    "source_phases": ["detail", "finish"],
+    "min_strokes_per_candidate": 10,
+    "max_strokes_per_candidate": 18,
+    "avoid_brushes": ["mixerBrush", "smudgeBrush"],
     "avoid": [
       "座標をAIが直接指定する",
-      "1〜数筆の変化が小さすぎる候補を延々と評価する",
-      "白目や口を記号的な線で描く",
-      "細線だけを大量に追加して似せる",
-      "必要性を見ずにMixerやSmudgeを入れる"
+      "v7で既に描けていた顔構造を低レベルから描き直す",
+      "候補にあるからという理由だけで線を足す",
+      "顔全体へ均等に細線を増やす",
+      "記号的な白目・口・輪郭を作る"
     ],
-    "review_note": "micro bundleは変化が小さく、候補を選んでも局所構造が成立しにくかった。粗い段階では12〜24筆の既存passageを選び、目・口・真珠など終盤だけmicroへ戻す。"
+    "review_note": "round 3では粗いlight_shadow土台へ19筆を足しても変化が小さく、候補位置も顔外へ散った。モデルに低レベル構築を背負わせず、v7のface_structureまでを確立済み資産として固定し、以降の線の採否だけを視覚判断する。"
   }
 }
