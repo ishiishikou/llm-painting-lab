@@ -10,26 +10,26 @@
   <main class="app-shell">
     <header>
       <p class="eyebrow">LLM Painting Lab</p>
-      <h1>Iterative stroke renderer</h1>
-      <p class="lede">Raster images are not loaded. The canvas is rebuilt only from ordered stroke data.</p>
+      <h1>反復型ストローク描画環境</h1>
+      <p class="lede">Canvas は順序付きストロークだけを再生します。参照画像ガイドモードでも、完成画像そのものを Canvas に貼り付けません。</p>
     </header>
 
-    <section class="controls" aria-label="Painting controls">
-      <button id="play">Play</button>
-      <button id="pause">Pause</button>
-      <button id="step">+1 stroke</button>
-      <button id="reset">Reset</button>
-      <label>Speed
-        <input id="speed" type="range" min="1" max="300" value="40" />
-        <output id="speedValue">40</output>/frame
+    <section class="controls" aria-label="描画操作">
+      <button id="play">再生</button>
+      <button id="pause">一時停止</button>
+      <button id="step">1ストローク進める</button>
+      <button id="reset">リセット</button>
+      <label>速度
+        <input id="speed" type="range" min="1" max="5000" value="800" />
+        <output id="speedValue">800</output>/frame
       </label>
-      <button id="export">Export PNG</button>
+      <button id="export">PNG出力</button>
     </section>
 
     <section class="status-grid">
-      <div><span>Stroke</span><strong id="strokeStatus">0 / 0</strong></div>
-      <div><span>Phase</span><strong id="phaseStatus">—</strong></div>
-      <div><span>State</span><strong id="runStatus">loading</strong></div>
+      <div><span>ストローク</span><strong id="strokeStatus">0 / 0</strong></div>
+      <div><span>フェーズ</span><strong id="phaseStatus">—</strong></div>
+      <div><span>状態</span><strong id="runStatus">読み込み中</strong></div>
     </section>
 
     <section class="canvas-frame">
