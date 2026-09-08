@@ -26,7 +26,7 @@ jobs:
 
       - name: Check implementations and rules
         run: |
-          python -m py_compile tools/reference_to_brush_process.py tools/generate_direction_field_v5.py tools/generate_artifact_cleanup_v6.py tools/generate_observe_act_v7.py tools/generate_observe_act_v7_refined.py tools/render_brush_motion_video.py
+          python -m py_compile tools/reference_to_brush_process.py tools/generate_direction_field_v5.py tools/generate_artifact_cleanup_v6.py tools/generate_observe_act_v7.py tools/generate_observe_act_v7_refined.py tools/generate_observe_act_v7_quality.py tools/render_brush_motion_video.py
           node --check src/brushes.js
           test -s docs/painting-tool-rules.md
           test -s docs/painting-evaluation-rules.md
@@ -47,7 +47,7 @@ jobs:
       - name: Generate observe-act v7 process
         run: |
           mkdir -p artifact/src artifact/checkpoints
-          python tools/generate_observe_act_v7_refined.py reference.jpg \
+          python tools/generate_observe_act_v7_quality.py reference.jpg \
             --output artifact/strokes.generated.json \
             --preview artifact/preview.png \
             --metrics artifact/metrics.json \
@@ -133,11 +133,13 @@ jobs:
           cat > artifact/README.txt <<'TXT'
           observe-act v7 の成果物です。
 
-          6工程の名前だけでなく、工程内部を「観察→問題選択→パレットから色を取る→
-          一つの局所領域を数筆描く→再観察」の短いサイクルへ変更しています。
-          同じpaintLoadIdのストロークは、同じ絵具を筆につけたまま続けて描く1回の作業単位です。
-          v7 refinedでは中間サイズの明暗面を有限パレットで作ってから観察ループへ入り、
-          顔だけへ固執せず全主要部位を一度確認するようにしています。
+          工程内部を「観察→問題選択→パレット上で色を作る→一つの局所領域を数筆描く→再観察」
+          の短いサイクルへ変更しています。同じpaintLoadIdは、同じ絵具を筆につけたまま続けて
+          描く1回の作業単位です。
+
+          品質補正版では、有限パレットを維持しつつ、各paint load開始時だけ観察色へ混色し、
+          7〜13筆で再利用します。また中間サイズの明暗面は、現在のキャンバスとの差が大きい場所
+          だけに限定して重ね、既に良い場所を全面的に塗り直しません。
 
           observation-log.json: 各サイクルの観察・判断・前後スコア
           strokes.generated.json: decisionCycle / paintRun / paintLoadIdを含む描画データ
