@@ -10,7 +10,7 @@ permissions:
 jobs:
   render-reference:
     runs-on: ubuntu-latest
-    timeout-minutes: 10
+    timeout-minutes: 15
     steps:
       - name: Checkout
         uses: actions/checkout@v4
@@ -20,8 +20,11 @@ jobs:
         with:
           python-version: '3.12'
 
-      - name: Install Pillow
-        run: python -m pip install --disable-pip-version-check pillow
+      - name: Install rendering dependencies
+        run: |
+          sudo apt-get update
+          sudo apt-get install -y fonts-noto-cjk ffmpeg
+          python -m pip install --disable-pip-version-check pillow imageio imageio-ffmpeg
 
       - name: Download public-domain reference
         shell: bash
@@ -48,22 +51,41 @@ jobs:
             --detail 24000 \
             --repair 18000
 
-      - name: Verify generated document and repair improvement
+      - name: Reorder strokes into painter-like working order
+        run: |
+          python tools/reorder_painterly.py artifact/strokes.generated.json \
+            --output artifact/strokes.painterly.json \
+            --tile-size 96
+
+      - name: Render slow replay video with Japanese progress text
+        run: |
+          python tools/render_replay_video.py artifact/strokes.painterly.json \
+            --output artifact/replay-painterly.mp4 \
+            --seconds 75 \
+            --fps 12 \
+            --width 640
+
+      - name: Verify generated documents and repair improvement
         run: |
           python - <<'PY'
           import json
           from pathlib import Path
 
-          data = json.loads(Path('artifact/strokes.generated.json').read_text())
+          generated = json.loads(Path('artifact/strokes.generated.json').read_text())
+          painterly = json.loads(Path('artifact/strokes.painterly.json').read_text())
           metrics = json.loads(Path('artifact/metrics.json').read_text())['history']
-          count = len(data['strokes'])
+          count = len(generated['strokes'])
+          painterly_count = len(painterly['strokes'])
           print(f'generated strokes: {count}')
+          print(f'painterly strokes: {painterly_count}')
           print(json.dumps(metrics, ensure_ascii=False, indent=2))
 
           if count < 120000:
               raise SystemExit('ストローク数が12万未満です')
-          if any('image' in str(stroke).lower() for stroke in data['strokes']):
-              raise SystemExit('生成ストローク内に画像参照が含まれています')
+          if painterly_count != count:
+              raise SystemExit('並べ替えでストロークが欠落しています')
+          if any('image' in str(stroke).lower() for stroke in painterly['strokes']):
+              raise SystemExit('painterlyストローク内に画像参照が含まれています')
 
           base = metrics[0]
           final = metrics[-1]
@@ -71,6 +93,9 @@ jobs:
               raise SystemExit('残差修正後にPSNRが改善していません')
           if final['mae'] >= base['mae']:
               raise SystemExit('残差修正後にMAEが改善していません')
+
+          if not Path('artifact/replay-painterly.mp4').exists():
+              raise SystemExit('リプレイ動画が生成されていません')
           PY
 
       - name: Package replay viewer
@@ -79,22 +104,30 @@ jobs:
           cp src/app.js src/brushes.js artifact/src/
           cp strokes.json artifact/strokes.json
           gzip -k artifact/strokes.generated.json
+          gzip -k artifact/strokes.painterly.json
           cat > artifact/README.txt <<'TXT'
-          原画に近いキャンバス比率を使った参照画像ガイド描画の成果物です。
+          参照画像ガイド描画の成果物です。
 
           preview.png:
             864x1024 で生成した完成プレビュー。
 
           strokes.generated.json:
-            Canvas が再生する順序付きストロークデータ。
-            完成画像を Canvas に貼り付ける方式ではありません。
+            品質優先の元ストローク列。
+
+          strokes.painterly.json:
+            同じストロークを、人が絵を進めるように
+            「大きな形 → 明暗 → 構造 → 特徴部 → 見直し → 仕上げ」へ再構成し、
+            さらに領域ごとに局所的に作業する順へ並べ替えたもの。
+
+          replay-painterly.mp4:
+            日本語フォントを明示して生成した、進捗表示付きのゆっくり描画動画。
 
           metrics.json:
             初期描画 → 残差修正1 → 残差修正2 の品質指標。
 
           再生方法:
             このフォルダを HTTP サーバーで公開し、
-            /?mode=generated を開いてください。
+            /?mode=painterly を開いてください。
           TXT
 
       - name: Upload demo artifact
