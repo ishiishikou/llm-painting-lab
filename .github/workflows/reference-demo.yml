@@ -31,6 +31,7 @@ jobs:
           python -m py_compile tools/reference_to_brush_process.py tools/render_brush_motion_video.py
           node --check src/brushes.js
           test -s docs/painting-tool-rules.md
+          test -s docs/painting-evaluation-rules.md
 
       - name: Download public-domain reference
         shell: bash
@@ -45,7 +46,7 @@ jobs:
           fi
           test -s reference.jpg
 
-      - name: Generate painting-tools v4 process
+      - name: Generate direction-field v5 process
         run: |
           mkdir -p artifact/src artifact/checkpoints
           python tools/reference_to_brush_process.py reference.jpg \
@@ -55,19 +56,19 @@ jobs:
             --checkpoint-dir artifact/checkpoints \
             --width 864 \
             --height 1024 \
-            --detail 18000 \
-            --finish 10000
+            --detail 14000 \
+            --finish 7000
           cp artifact/strokes.generated.json artifact/strokes.painterly.json
 
       - name: Render replay with visible tool usage
         run: |
           python tools/render_brush_motion_video.py artifact/strokes.generated.json \
-            --output artifact/replay-painting-tools.mp4 \
+            --output artifact/replay-direction-field.mp4 \
             --seconds 90 \
             --fps 12 \
             --width 640
 
-      - name: Verify six stages and tool selection policy
+      - name: Verify stages, tool policy, and direction field
         run: |
           python - <<'PY'
           import json
@@ -91,6 +92,7 @@ jobs:
           print('phase counts:', dict(phase_counts))
           print('brush counts:', dict(brush_counts))
           print('masked strokes:', masked)
+          print('direction stats:', data['metadata'].get('direction_stats'))
           print('total strokes:', len(strokes))
 
           if actual != expected:
@@ -101,7 +103,12 @@ jobs:
               raise SystemExit('背景が地塗り扱いになっていません')
           if data['metadata'].get('tool_policy') != 'docs/painting-tool-rules.md':
               raise SystemExit('描画道具ルールへの参照がありません')
-          if len(strokes) < 28000:
+          if data['metadata'].get('evaluation_policy') != 'docs/painting-evaluation-rules.md':
+              raise SystemExit('描画評価ルールへの参照がありません')
+          if data['metadata'].get('direction_policy') != 'region-form-following-v5':
+              raise SystemExit('部位別方向場が有効になっていません')
+
+          if len(strokes) < 20000:
               raise SystemExit('ストローク数が少なすぎます')
           if phase_counts['composition'] > 20:
               raise SystemExit('構図工程が細かすぎます')
@@ -111,14 +118,15 @@ jobs:
               raise SystemExit('明暗の面工程が不足しています')
           if phase_counts['face_structure'] < 800:
               raise SystemExit('顔構造工程が不足しています')
-          if phase_counts['detail'] < 15000:
+          if phase_counts['detail'] < 9000:
               raise SystemExit('細部工程が不足しています')
-          if phase_counts['finish'] < 8000:
+          if phase_counts['finish'] < 5000:
               raise SystemExit('仕上げ工程が不足しています')
 
           required = {
               'dryBrush': 1200,
-              'variableBrush': 1500,
+              'flatBrush': 1000,
+              'variableBrush': 2000,
               'mixerBrush': 200,
               'smudgeBrush': 80,
               'glaze': 20,
@@ -133,7 +141,6 @@ jobs:
           if any('image' in str(s).lower() for s in strokes):
               raise SystemExit('生成ストローク内に画像参照が含まれています')
 
-          # ルール違反の代表例を機械検査する。
           if any(s['phase'] == 'composition' and s['brush'] in {'mixerBrush','smudgeBrush','glaze'} for s in strokes):
               raise SystemExit('構図工程で混色/ぼかし/グレーズを使用しています')
           if any(s['phase'] == 'silhouette' and s['brush'] in {'smudgeBrush','glaze'} for s in strokes):
@@ -142,6 +149,20 @@ jobs:
               raise SystemExit('細部工程で広域調整系ブラシを使用しています')
           if not any(s['phase'] == 'finish' and s['brush'] == 'glaze' for s in strokes):
               raise SystemExit('仕上げ工程でGlazeが使われていません')
+
+          # 「全部ほぼ同じ斜め棒線」を自動検知する。
+          direction = data['metadata']['direction_stats']
+          overall = direction['all']
+          if overall['count'] < 1000:
+              raise SystemExit('方向場を評価できる広筆ストロークが不足しています')
+          if overall['dominant_share'] >= 0.34:
+              raise SystemExit(f'広筆が1方向に集中しすぎています: {overall}')
+          if overall['active_bins'] < 6:
+              raise SystemExit(f'広筆の方向分布が単調です: {overall}')
+          for role in ['face','headwrap','garment']:
+              stats = direction[role]
+              if stats['count'] >= 100 and stats['active_bins'] < 3:
+                  raise SystemExit(f'{role} の方向分布が単調です: {stats}')
 
           metrics = json.loads(Path('artifact/metrics.json').read_text())['checkpoints']
           final = metrics[-1]
@@ -154,8 +175,8 @@ jobs:
           for name in ['01-composition.png','02-silhouette.png','03-light-shadow.png','04-face-structure.png','05-detail.png','06-finish.png']:
               if not (Path('artifact/checkpoints') / name).exists():
                   raise SystemExit(f'チェックポイントがありません: {name}')
-          if not Path('artifact/replay-painting-tools.mp4').exists():
-              raise SystemExit('描画道具リプレイ動画が生成されていません')
+          if not Path('artifact/replay-direction-field.mp4').exists():
+              raise SystemExit('方向場リプレイ動画が生成されていません')
           PY
 
       - name: Package replay viewer
@@ -164,33 +185,33 @@ jobs:
           cp src/app.js src/brushes.js artifact/src/
           cp strokes.json artifact/strokes.json
           cp docs/painting-tool-rules.md artifact/painting-tool-rules.md
+          cp docs/painting-evaluation-rules.md artifact/painting-evaluation-rules.md
           gzip -k artifact/strokes.generated.json
           cat > artifact/README.txt <<'TXT'
-          描画道具v4の成果物です。
+          部位別方向場 v5 の成果物です。
 
-          6工程の役割を維持したまま、次の道具を追加しています。
-          - dryBrush / 大きな平筆相当
-          - variableBrush / 入り・抜きのある筆
-          - mixerBrush / 下地色を拾いながら混ぜる筆
-          - smudgeBrush / 既存色を筆方向へ引きずる筆
-          - glaze / 低透明度の色膜
-          - clipBox / Mask・Alpha Lock 相当の描画範囲制御
+          v4の描画道具を維持しながら、広い筆と細部の方向を部位の形状へ追従させています。
+          - 顔: 頬・額・顎の曲面。細部では目=横、鼻筋=縦、口=横を補助
+          - ターバン: 頭部を回り込む巻き・折れ方向
+          - 衣服: 重力と肩からの落ち方向
+          - 細部: 形状方向を基準に、局所エッジ方向を強める
 
-          Mixer / Smudge は単純なGaussian Blurではなく、その時点のキャンバス色を参照します。
-          Glaze は仕上げ工程だけで薄く使います。
+          また、細部・仕上げをv4より減らし、顔・ターバンへ重点配分しています。
+          「最後の細線で全画面を復元する」依存を下げ、大きな形と明暗で似せる方向へ寄せています。
 
           checkpoints/: 各工程終了時点の画像
           preview.png: 最終完成画像
-          strokes.generated.json: 実際の描画順と道具情報
-          replay-painting-tools.mp4: 道具名を表示する描画リプレイ
-          painting-tool-rules.md: 道具の使い分けルール
-          metrics.json: 工程ごとの品質指標
+          strokes.generated.json: 実際の描画順・道具・方向統計
+          replay-direction-field.mp4: 部位別方向場を使った描画リプレイ
+          painting-tool-rules.md: 工程×部位×道具のルール
+          painting-evaluation-rules.md: 描画過程の評価基準
+          metrics.json: 工程ごとの品質指標と方向統計
           TXT
 
       - name: Upload demo artifact
         uses: actions/upload-artifact@v4
         with:
-          name: painting-tools-demo
+          name: direction-field-demo
           path: artifact/
           if-no-files-found: error
           retention-days: 14
