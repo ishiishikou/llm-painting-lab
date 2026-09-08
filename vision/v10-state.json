@@ -1,0 +1,28 @@
+{
+  "version": 1,
+  "review_round": 1,
+  "accepted_templates": [],
+  "rejected_template_ids": [],
+  "intent_card": {
+    "region": "face",
+    "target": "viewer_left_eye",
+    "goal": "参照画から自動検出した左側の目位置へ、v7で既に成立していた暗い顔用ストローク形状をそのまま移し、白目を描く前に虹彩・上瞼として自然に読める少数線を選ぶ",
+    "candidate_mode": "landmark_template",
+    "candidate_count": 6,
+    "source_phases": ["detail", "finish"],
+    "source_roles": ["face"],
+    "allow_brushes": ["line", "variableBrush"],
+    "color_family": "eye_dark",
+    "min_strokes_per_template": 3,
+    "max_strokes_per_template": 7,
+    "max_template_span": 28,
+    "avoid": [
+      "AIがx/y座標を指定する",
+      "参照画の画素誤差で候補を順位付けする",
+      "白い棒や点を眼球として置く",
+      "元ストローク形状をピクセル追跡用に変形する",
+      "候補があるからという理由だけで採用する"
+    ],
+    "review_note": "v9のwhole_face候補を参照画へ重ねると、推定face bboxの帯だけでなくv7側の線位置自体も実際の目からずれていることが分かった。次は線の形状・筆圧・太さ・色はv7から保持し、位置だけをOpenCVで自動検出した目ランドマークへ移す。レビュー担当はsemantic targetと採否だけを決める。"
+  }
+}
