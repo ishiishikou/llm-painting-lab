@@ -4,7 +4,9 @@ on:
   pull_request:
     paths:
       - 'tools/generate_vision_guided_v8.py'
+      - 'tools/generate_vision_guided_v8_rounds.py'
       - 'vision/v8-plan.json'
+      - 'vision/v8-rounds/**'
       - 'docs/vision-guided-v8.md'
       - '.github/workflows/vision-guided-v8.yml'
   workflow_dispatch:
@@ -30,11 +32,13 @@ jobs:
         shell: bash
         run: |
           set -euo pipefail
-          python -m py_compile tools/reference_to_brush_process.py tools/generate_vision_guided_v8.py
-          if grep -Eq 'Image\.open|crop_resize\(|gradient\(|metrics\(' tools/generate_vision_guided_v8.py; then
-            echo 'v8 generator contains a forbidden reference/image-analysis operation'
-            exit 1
-          fi
+          python -m py_compile tools/reference_to_brush_process.py tools/generate_vision_guided_v8.py tools/generate_vision_guided_v8_rounds.py
+          for f in tools/generate_vision_guided_v8.py tools/generate_vision_guided_v8_rounds.py; do
+            if grep -Eq 'Image\.open|crop_resize\(|gradient\(|metrics\(' "$f"; then
+              echo "$f contains a forbidden reference/image-analysis operation"
+              exit 1
+            fi
+          done
           test -s docs/vision-guided-v8.md
           test -s vision/v8-plan.json
 
@@ -54,10 +58,11 @@ jobs:
       - name: Render current visual-review plan
         run: |
           mkdir -p artifact
-          python tools/generate_vision_guided_v8.py vision/v8-plan.json \
+          python tools/generate_vision_guided_v8_rounds.py vision/v8-plan.json \
             --output artifact/strokes.generated.json \
             --preview artifact/preview.png
           cp vision/v8-plan.json artifact/v8-plan.json
+          if [ -d vision/v8-rounds ]; then cp -R vision/v8-rounds artifact/; fi
           cp docs/vision-guided-v8.md artifact/vision-guided-v8.md
 
       - name: Build review pair and evaluation-only metrics
@@ -70,16 +75,17 @@ jobs:
           sys.path.insert(0, 'tools')
           import reference_to_brush_process as base
 
-          plan=json.loads(Path('vision/v8-plan.json').read_text())
           out=Image.open('artifact/preview.png').convert('RGB')
           ref=base.crop_resize(Image.open('reference.jpg'), out.width, out.height)
           m=base.metrics(ref,out)
           data=json.loads(Path('artifact/strokes.generated.json').read_text())
+          meta=data['metadata']
           summary={
-            'review_round': plan.get('review_round',0),
+            'review_round': meta.get('review_round',0),
             'stroke_count': len(data['strokes']),
-            'brush_counts': data['metadata']['brush_counts'],
-            'phase_counts': data['metadata']['phase_counts'],
+            'brush_counts': meta['brush_counts'],
+            'phase_counts': meta['phase_counts'],
+            'round_files': meta.get('round_files',[]),
             'evaluation_only_metrics': m,
             'generator_reference_access': False,
           }
@@ -92,7 +98,7 @@ jobs:
           pair.paste(rr,(0,42)); pair.paste(oo,(rw,42))
           d=ImageDraw.Draw(pair)
           d.text((12,12),'REFERENCE',fill='black')
-          d.text((rw+12,12),f'CURRENT v8 / review round {plan.get("review_round",0)}',fill='black')
+          d.text((rw+12,12),f'CURRENT v8 / review round {meta.get("review_round",0)}',fill='black')
           pair.save('artifact/review-pair.png')
           ref.save('artifact/reference-review.png')
           print(json.dumps(summary,ensure_ascii=False))
@@ -111,9 +117,9 @@ jobs:
           if meta.get('reference_access_in_generator') is not False:
               raise SystemExit('generator reference access must be false')
           if not plan.get('actions'):
-              raise SystemExit('visual review plan is empty')
+              raise SystemExit('visual review base plan is empty')
           if len(data['strokes']) > 2000:
-              raise SystemExit('one review plan has become too large; stop and visually review sooner')
+              raise SystemExit('review plan has become too large; stop and visually review sooner')
           for s in data['strokes']:
               if not s.get('reviewActionId'):
                   raise SystemExit('stroke without reviewer action id')
