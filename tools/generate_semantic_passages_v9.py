@@ -67,13 +67,19 @@ def color_family_ok(s, intent):
         p = base.parse_hex(color)
     except Exception:
         return False
+    r, g, b = p
     if family == "skin":
         return base.skin(p)
+    if family == "skin_mid":
+        return base.skin(p) and base.lum(p) <= 205
     if family == "skin_or_shadow":
         if base.skin(p):
             return True
-        r, g, b = p
         return r >= g >= b and 35 <= r <= 155 and max(p) - min(p) >= 8
+    if family == "face_shadow":
+        l = base.lum(p)
+        warm_or_neutral = r >= b * 0.95 and g >= b * 0.82 and r >= g * 0.88
+        return warm_or_neutral and 35 <= l <= 165 and max(p) - min(p) >= 6
     return True
 
 
