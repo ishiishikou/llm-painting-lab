@@ -1,17 +1,19 @@
-import { applyStroke } from "./brushes.js";
+import { applyStroke } from './brushes.js';
+import { createPortraitDocument } from './scene.js';
 
-const canvas = document.querySelector("#painting");
-const ctx = canvas.getContext("2d", { alpha: false });
-const playButton = document.querySelector("#play");
-const pauseButton = document.querySelector("#pause");
-const stepButton = document.querySelector("#step");
-const resetButton = document.querySelector("#reset");
-const exportButton = document.querySelector("#export");
-const speedInput = document.querySelector("#speed");
-const speedValue = document.querySelector("#speedValue");
-const strokeStatus = document.querySelector("#strokeStatus");
-const phaseStatus = document.querySelector("#phaseStatus");
-const runStatus = document.querySelector("#runStatus");
+const canvas = document.querySelector('#painting');
+const ctx = canvas.getContext('2d', { alpha: false });
+const $ = (selector) => document.querySelector(selector);
+const playButton = $('#play');
+const pauseButton = $('#pause');
+const stepButton = $('#step');
+const resetButton = $('#reset');
+const exportButton = $('#export');
+const speedInput = $('#speed');
+const speedValue = $('#speedValue');
+const strokeStatus = $('#strokeStatus');
+const phaseStatus = $('#phaseStatus');
+const runStatus = $('#runStatus');
 
 let documentData;
 let strokes = [];
@@ -22,8 +24,8 @@ let raf = null;
 function paintBackground() {
   ctx.save();
   ctx.globalAlpha = 1;
-  ctx.globalCompositeOperation = "source-over";
-  ctx.fillStyle = documentData?.canvas?.background ?? "#111318";
+  ctx.globalCompositeOperation = 'source-over';
+  ctx.fillStyle = documentData?.canvas?.background ?? '#111318';
   ctx.fillRect(0, 0, canvas.width, canvas.height);
   ctx.restore();
 }
@@ -32,30 +34,25 @@ function updateStatus() {
   strokeStatus.textContent = `${cursor.toLocaleString()} / ${strokes.length.toLocaleString()}`;
   const phaseId = cursor > 0 ? strokes[Math.min(cursor - 1, strokes.length - 1)]?.phase : null;
   const phase = documentData?.phases?.find((candidate) => candidate.id === phaseId);
-  phaseStatus.textContent = phase?.label ?? phaseId ?? "—";
-  runStatus.textContent = running ? "painting" : cursor >= strokes.length ? "complete" : "paused";
+  phaseStatus.textContent = phase?.label ?? phaseId ?? '—';
+  runStatus.textContent = running ? '描画中' : cursor >= strokes.length ? '完了' : '停止中';
 }
 
 function renderStroke(index) {
   const stroke = strokes[index];
-  if (!stroke) return;
-  applyStroke(ctx, stroke);
+  if (stroke) applyStroke(ctx, stroke);
 }
 
 function renderFrame() {
   if (!running) return;
   const perFrame = Number(speedInput.value);
   const target = Math.min(cursor + perFrame, strokes.length);
-
-  while (cursor < target) {
-    renderStroke(cursor);
-    cursor += 1;
-  }
-
+  while (cursor < target) renderStroke(cursor++);
   updateStatus();
   if (cursor >= strokes.length) {
     running = false;
     raf = null;
+    window.__paintingReady = true;
     updateStatus();
     return;
   }
@@ -79,6 +76,7 @@ function pause() {
 function reset() {
   pause();
   cursor = 0;
+  window.__paintingReady = false;
   paintBackground();
   updateStatus();
 }
@@ -86,39 +84,55 @@ function reset() {
 function step() {
   pause();
   if (cursor >= strokes.length) return;
-  renderStroke(cursor);
-  cursor += 1;
+  renderStroke(cursor++);
+  updateStatus();
+}
+
+function renderAll() {
+  pause();
+  while (cursor < strokes.length) renderStroke(cursor++);
+  window.__paintingReady = true;
   updateStatus();
 }
 
 function exportPng() {
-  const link = document.createElement("a");
-  link.download = `${documentData?.metadata?.slug ?? "painting"}-${cursor}-strokes.png`;
-  link.href = canvas.toDataURL("image/png");
+  const link = document.createElement('a');
+  link.download = `${documentData?.metadata?.slug ?? 'painting'}-${cursor}-strokes.png`;
+  link.href = canvas.toDataURL('image/png');
   link.click();
 }
 
-async function init() {
-  const response = await fetch("./strokes.json", { cache: "no-store" });
-  if (!response.ok) throw new Error(`Failed to load strokes.json: ${response.status}`);
-  documentData = await response.json();
-  strokes = documentData.strokes ?? [];
+async function loadDocument() {
+  const params = new URLSearchParams(location.search);
+  if (params.get('mode') === 'generated') {
+    const response = await fetch('./strokes.generated.json', { cache: 'no-store' });
+    if (!response.ok) throw new Error(`strokes.generated.json の読み込みに失敗しました: ${response.status}`);
+    return response.json();
+  }
+  return createPortraitDocument();
+}
 
+async function init() {
+  documentData = await loadDocument();
+  strokes = documentData.strokes ?? [];
   canvas.width = documentData.canvas?.width ?? 768;
   canvas.height = documentData.canvas?.height ?? 1024;
   paintBackground();
   updateStatus();
+  window.__paintingDocument = documentData;
+  window.__paintingReady = false;
+  if (new URLSearchParams(location.search).has('instant')) renderAll();
 }
 
-playButton.addEventListener("click", play);
-pauseButton.addEventListener("click", pause);
-stepButton.addEventListener("click", step);
-resetButton.addEventListener("click", reset);
-exportButton.addEventListener("click", exportPng);
-speedInput.addEventListener("input", () => { speedValue.textContent = speedInput.value; });
+playButton.addEventListener('click', play);
+pauseButton.addEventListener('click', pause);
+stepButton.addEventListener('click', step);
+resetButton.addEventListener('click', reset);
+exportButton.addEventListener('click', exportPng);
+speedInput.addEventListener('input', () => { speedValue.textContent = speedInput.value; });
 
 init().catch((error) => {
   console.error(error);
-  runStatus.textContent = "error";
+  runStatus.textContent = 'エラー';
   phaseStatus.textContent = error.message;
 });
