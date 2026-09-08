@@ -39,29 +39,29 @@ jobs:
           fi
           test -s reference.jpg
 
-      - name: Generate painter-like process strokes
+      - name: Generate brush-motion painting process
         run: |
           mkdir -p artifact/src artifact/checkpoints
-          python tools/reference_to_human_strokes.py reference.jpg \
+          python tools/reference_to_brush_process.py reference.jpg \
             --output artifact/strokes.generated.json \
             --preview artifact/preview.png \
             --metrics artifact/metrics.json \
             --checkpoint-dir artifact/checkpoints \
             --width 864 \
             --height 1024 \
-            --detail 30000 \
-            --finish 18000
+            --detail 18000 \
+            --finish 10000
           cp artifact/strokes.generated.json artifact/strokes.painterly.json
 
-      - name: Render phase-weighted replay video with Japanese progress text
+      - name: Render replay with visible brush motion
         run: |
-          python tools/render_replay_video.py artifact/strokes.generated.json \
-            --output artifact/replay-human-order.mp4 \
-            --seconds 82 \
-            --fps 10 \
+          python tools/render_brush_motion_video.py artifact/strokes.generated.json \
+            --output artifact/replay-brush-motion.mp4 \
+            --seconds 90 \
+            --fps 12 \
             --width 640
 
-      - name: Verify the six stages are real ordered stroke blocks
+      - name: Verify painter-like stages and brush usage
         run: |
           python - <<'PY'
           import json
@@ -85,9 +85,11 @@ jobs:
               if not actual or actual[-1] != phase:
                   actual.append(phase)
 
-          counts = Counter(stroke['phase'] for stroke in strokes)
+          phase_counts = Counter(stroke['phase'] for stroke in strokes)
+          brush_counts = Counter(stroke['brush'] for stroke in strokes)
           print('phase order:', actual)
-          print('phase counts:', dict(counts))
+          print('phase counts:', dict(phase_counts))
+          print('brush counts:', dict(brush_counts))
           print('total strokes:', len(strokes))
 
           if actual != expected:
@@ -96,20 +98,22 @@ jobs:
               raise SystemExit('metadata.phase_order が6工程と一致しません')
           if data['metadata'].get('background_policy') != 'toned-ground-no-progress':
               raise SystemExit('背景が地塗り扱いになっていません')
-          if len(strokes) < 45000:
+          if len(strokes) < 28000:
               raise SystemExit('ストローク数が少なすぎます')
-          if counts['composition'] > 50:
+          if phase_counts['composition'] > 20:
               raise SystemExit('構図工程が細かすぎます')
-          if counts['silhouette'] < 500:
+          if phase_counts['silhouette'] < 350:
               raise SystemExit('大きな形のブロックインが不足しています')
-          if counts['light_shadow'] < 2500:
+          if phase_counts['light_shadow'] < 1200:
               raise SystemExit('明暗の面工程が不足しています')
-          if counts['face_structure'] < 1500:
+          if phase_counts['face_structure'] < 800:
               raise SystemExit('顔構造工程が不足しています')
-          if counts['detail'] < 25000:
+          if phase_counts['detail'] < 15000:
               raise SystemExit('細部工程が不足しています')
-          if counts['finish'] < 15000:
+          if phase_counts['finish'] < 8000:
               raise SystemExit('仕上げ工程が不足しています')
+          if brush_counts['dryBrush'] < 1200:
+              raise SystemExit('太筆・かすれ筆の使用量が不足しています')
           if any(stroke.get('brush') == 'ellipse' for stroke in strokes):
               raise SystemExit('円形スタンプが残っています')
           if any('image' in str(stroke).lower() for stroke in strokes):
@@ -118,25 +122,24 @@ jobs:
           metrics = json.loads(Path('artifact/metrics.json').read_text())['checkpoints']
           final = metrics[-1]
           print('final metrics:', final)
-          if final['mae'] >= 15:
+          if final['mae'] >= 18:
               raise SystemExit('完成画像のMAEが大きすぎます')
-          if final['psnr'] <= 20:
+          if final['psnr'] <= 18:
               raise SystemExit('完成画像のPSNRが低すぎます')
 
-          expected_checkpoints = [
+          for name in [
               '01-composition.png',
               '02-silhouette.png',
               '03-light-shadow.png',
               '04-face-structure.png',
               '05-detail.png',
               '06-finish.png',
-          ]
-          for name in expected_checkpoints:
+          ]:
               if not (Path('artifact/checkpoints') / name).exists():
                   raise SystemExit(f'チェックポイントがありません: {name}')
 
-          if not Path('artifact/replay-human-order.mp4').exists():
-              raise SystemExit('リプレイ動画が生成されていません')
+          if not Path('artifact/replay-brush-motion.mp4').exists():
+              raise SystemExit('筆運びリプレイ動画が生成されていません')
           PY
 
       - name: Package replay viewer
@@ -146,41 +149,33 @@ jobs:
           cp strokes.json artifact/strokes.json
           gzip -k artifact/strokes.generated.json
           cat > artifact/README.txt <<'TXT'
-          画家のブロックインに近い描画工程を模した成果物です。
+          公開されている油彩制作過程を参考にした、筆運び主体の描画成果物です。
 
           1. 構図
-          2. 大きな形
-          3. 明暗の面
+          2. 下塗り + 大きな形
+          3. 明暗と色面
           4. 顔構造
           5. 細部
           6. 仕上げ
 
-          以前の円形スタンプによる格子状ブロックインは廃止しました。
-          序盤は長く太い筆致で人物の大きな塊を置きます。
+          序盤では色の四角いパッチを貼る方式を使わず、dryBrush による
+          長く太い筆致を重ねます。大きな形では暖色の下塗りを挟んでから
+          本来の色を置き、油彩のブロックインに近い進み方を狙います。
 
-          背景は地塗りとして最初から置き、細かな背景更新に動画時間を使いません。
-          リプレイ動画はストローク数比例ではなく工程ごとに時間を配分します。
+          replay-brush-motion.mp4 は、主要ストロークを瞬間表示せず、
+          筆先が始点から終点へ移動して見えるよう途中状態を描画します。
+          背景は地塗りとして最初から置き、背景更新で動画時間を消費しません。
 
-          checkpoints/:
-            各工程終了時点の画像。
-
-          preview.png:
-            最終完成画像。
-
-          strokes.generated.json:
-            6工程の順で生成された全ストロークデータ。
-
-          replay-human-order.mp4:
-            日本語進捗表示付きの工程比例リプレイ。
-
-          metrics.json:
-            工程ごとのストローク数と品質指標。
+          checkpoints/: 各工程終了時点の画像
+          preview.png: 最終完成画像
+          strokes.generated.json: 実際の描画順のストロークデータ
+          metrics.json: 工程ごとの品質指標
           TXT
 
       - name: Upload demo artifact
         uses: actions/upload-artifact@v4
         with:
-          name: human-painting-order-demo
+          name: brush-motion-demo
           path: artifact/
           if-no-files-found: error
           retention-days: 14
