@@ -1,0 +1,172 @@
+{
+  "review_round": 4,
+  "review_summary": "Round 3 has enough large-value separation to start structural landmarks. The face is still blocky, so first connect the skin planes with a deliberately chosen mixer pass, then place only the eyes, nose, mouth, ear and pearl. No general detail pass yet.",
+  "actions": [
+    {
+      "id": "r4-face-plane-mix",
+      "review_round": 4,
+      "phase": "face_structure",
+      "intent": "connect the blocky skin passages before drawing features",
+      "decision": "The skin is visibly split into horizontal capsules. This is a real edge-continuity problem, so Mixer is justified here; it is not being inserted by cadence.",
+      "brush": "mixerBrush",
+      "shape": {"type":"ellipse","bbox":[0.30,0.32,0.59,0.58]},
+      "color": "#b9896e",
+      "count": 12,
+      "length": 66,
+      "width": 30,
+      "opacity": 0.42,
+      "flow": "fixed",
+      "angle_deg": -8,
+      "angle_jitter_deg": 22,
+      "length_jitter": 0.18,
+      "width_jitter": 0.14,
+      "pickup": 0.16,
+      "mix": 0.54,
+      "deposit": 0.27
+    },
+    {
+      "id": "r4-ear-mass",
+      "review_round": 4,
+      "phase": "face_structure",
+      "intent": "place the ear as a subdued warm shape between face and dark neck",
+      "decision": "The ear is a small warm mass at the back of the head and is necessary to anchor the pearl; keep it broad and quiet.",
+      "brush": "flatBrush",
+      "shape": {"type":"ellipse","bbox":[0.565,0.42,0.625,0.505]},
+      "color": "#8d6250",
+      "count": 6,
+      "length": 31,
+      "width": 17,
+      "opacity": 0.50,
+      "flow": "fixed",
+      "angle_deg": 72,
+      "angle_jitter_deg": 15,
+      "length_jitter": 0.14,
+      "width_jitter": 0.12
+    },
+    {
+      "id": "r4-eye-lids",
+      "review_round": 4,
+      "phase": "face_structure",
+      "intent": "establish both eye axes and gaze with the minimum dark marks",
+      "decision": "The eyes are the highest-value structural landmarks now. Place only upper-lid/gaze marks; do not render lashes or iris texture.",
+      "kind": "segments",
+      "brush": "variableBrush",
+      "color": "#40302a",
+      "opacity": 0.84,
+      "width": 3.8,
+      "taper": 0.42,
+      "segments": [
+        {"from":[0.322,0.374],"to":[0.357,0.378],"width":4.0},
+        {"from":[0.420,0.389],"to":[0.469,0.392],"width":4.2},
+        {"from":[0.326,0.365],"to":[0.360,0.360],"width":3.1},
+        {"from":[0.419,0.378],"to":[0.462,0.373],"width":3.0}
+      ]
+    },
+    {
+      "id": "r4-eye-pupils",
+      "review_round": 4,
+      "phase": "face_structure",
+      "intent": "fix gaze direction with two tiny dark accents",
+      "decision": "The reference gaze points left toward the viewer. Two tiny dark marks are enough; stop there and review before any highlight.",
+      "kind": "segments",
+      "brush": "line",
+      "color": "#241d19",
+      "opacity": 0.92,
+      "width": 3.5,
+      "segments": [
+        {"from":[0.339,0.370],"to":[0.341,0.383],"width":3.5},
+        {"from":[0.446,0.384],"to":[0.448,0.398],"width":3.5}
+      ]
+    },
+    {
+      "id": "r4-nose-side",
+      "review_round": 4,
+      "phase": "face_structure",
+      "intent": "define the nose with one shadow-side axis rather than an outlined triangle",
+      "decision": "The nose is a long softly modeled wedge. A single broken shadow-side line is enough to establish its direction at this stage.",
+      "kind": "segments",
+      "brush": "variableBrush",
+      "color": "#79533f",
+      "opacity": 0.64,
+      "width": 4.8,
+      "taper": 0.35,
+      "segments": [
+        {"from":[0.382,0.397],"to":[0.365,0.468],"width":4.8},
+        {"from":[0.365,0.468],"to":[0.386,0.486],"width":3.8}
+      ]
+    },
+    {
+      "id": "r4-nose-light",
+      "review_round": 4,
+      "phase": "face_structure",
+      "intent": "keep the nose readable as volume by adding one restrained light-side stroke",
+      "decision": "The nose needs a light counterpart to the shadow axis, but not a bright outline.",
+      "kind": "segments",
+      "brush": "variableBrush",
+      "color": "#d0a286",
+      "opacity": 0.50,
+      "width": 4.0,
+      "taper": 0.30,
+      "segments": [
+        {"from":[0.355,0.405],"to":[0.350,0.466],"width":4.0}
+      ]
+    },
+    {
+      "id": "r4-mouth",
+      "review_round": 4,
+      "phase": "face_structure",
+      "intent": "set mouth width, tilt and opening with two red-brown marks",
+      "decision": "The mouth is small and slightly parted. Establish its axis and lower lip volume without tracing the entire contour.",
+      "kind": "segments",
+      "brush": "variableBrush",
+      "color": "#9b5148",
+      "opacity": 0.78,
+      "width": 4.3,
+      "taper": 0.38,
+      "segments": [
+        {"from":[0.338,0.514],"to":[0.410,0.521],"width":4.3},
+        {"from":[0.352,0.531],"to":[0.404,0.528],"width":3.7}
+      ]
+    },
+    {
+      "id": "r4-pearl-base",
+      "review_round": 4,
+      "phase": "face_structure",
+      "intent": "place the pearl as a distinct hanging object before its highlight",
+      "decision": "The pearl is a critical focal landmark and should already be visibly larger than a point. Build a cool gray base with a few strokes only.",
+      "brush": "variableBrush",
+      "shape": {"type":"ellipse","bbox":[0.603,0.527,0.648,0.578]},
+      "color": "#9b9a91",
+      "count": 5,
+      "length": 22,
+      "width": 13,
+      "opacity": 0.72,
+      "flow": "fixed",
+      "angle_deg": 74,
+      "angle_jitter_deg": 20,
+      "length_jitter": 0.12,
+      "width_jitter": 0.10,
+      "taper": 0.58
+    },
+    {
+      "id": "r4-pearl-light",
+      "review_round": 4,
+      "phase": "face_structure",
+      "intent": "give the pearl one strong light accent",
+      "decision": "One pale highlight should be enough to separate the pearl from the neck; do not add a ring of white marks.",
+      "brush": "variableBrush",
+      "shape": {"type":"ellipse","bbox":[0.607,0.531,0.628,0.552]},
+      "color": "#ece9da",
+      "count": 2,
+      "length": 12,
+      "width": 7,
+      "opacity": 0.88,
+      "flow": "fixed",
+      "angle_deg": 50,
+      "angle_jitter_deg": 12,
+      "length_jitter": 0.08,
+      "width_jitter": 0.08,
+      "taper": 0.55
+    }
+  ]
+}
