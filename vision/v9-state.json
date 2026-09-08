@@ -1,12 +1,13 @@
 {
-  "version": 9,
-  "review_round": 13,
+  "version": 10,
+  "review_round": 14,
   "frozen_base_phases": ["silhouette", "light_shadow"],
   "accepted_bundle_ids": [
     "semantic-eye_band-3189-75",
     "semantic-eye_band-3150-75",
     "semantic-mid_face-3070-75",
-    "semantic-lower_face-4730-75"
+    "semantic-lower_face-4730-75",
+    "semantic-upper_face-2498-70"
   ],
   "accepted_passages": [
     {
@@ -24,35 +25,35 @@
     {
       "bundle_id": "semantic-lower_face-4730-75",
       "source_stroke_ids": [2542,2546,2576,2630,2757,2834,2866,2890,2921,2944,2972,3012,3059,3134,3144,3212,3223,3337,3341,3344,3353,3373,3418,3515,3547,3559,3636,3684,3690,3715,3719,3725,3746,3755,3840,3849,3869,3892,3926,3930,3978,3990,4006,4009,4054,4087,4088,4090,4091,4148,4187,4191,4204,4232,4241,4273,4321,4324,4342,4400,4409,4416,4428,4436,4464,4483,4492,4557,4657,4707,4730,4771,4808,4842,4875]
+    },
+    {
+      "bundle_id": "semantic-upper_face-2498-70",
+      "source_stroke_ids": [2498,2499,2501,2506,2509,2513,2516,2518,2522,2524,2531,2537,2538,2541,2554,2564,2567,2568,2570,2577,2579,2584,2604,2614,2628,2633,2640,2646,2657,2663,2694,2697,2699,2706,2711,2713,2727,2731,2732,2761,2763,2801,2811,2820,2833,2836,2867,2898,2915,2929,2930,2937,2942,2962,2987,2989,2993,3007,3019,3022,3040,3060,3072,3074,3076,3092,3111,3118,3124,3139]
     }
   ],
   "rejected_bundle_ids": [
-    "semantic-whole_face-2491-90",
-    "semantic-whole_face-2601-90",
-    "semantic-whole_face-2933-90",
-    "semantic-whole_face-5181-90",
-    "semantic-whole_face-2735-90",
-    "semantic-whole_face-2840-90"
+    "semantic-upper_face-3044-70",
+    "semantic-upper_face-2987-70"
   ],
   "intent_card": {
     "region": "face",
-    "focus": "upper_face",
-    "goal": "青いターバン色や顔外の暗色を混ぜず、v7のclean variableBrushのうち肌色として成立していた線だけで、額・眉・眼窩周辺の面を一仕事追加する",
+    "focus": "eye_band",
+    "goal": "採用した肌色の上顔面を壊さず、v7 face_structureのclean variableBrushから暖色〜中性の暗部だけを選び、眼球を白い記号で描く前に瞼・眉・眼窩の陰影を成立させる",
     "candidate_mode": "semantic_passage",
-    "candidate_count": 3,
+    "candidate_count": 6,
     "source_phases": ["face_structure"],
     "allow_brushes": ["variableBrush"],
-    "color_family": "skin",
-    "min_strokes_per_candidate": 55,
-    "max_strokes_per_candidate": 85,
+    "color_family": "face_shadow",
+    "min_strokes_per_candidate": 18,
+    "max_strokes_per_candidate": 30,
     "avoid_brushes": ["line", "mixerBrush", "smudgeBrush", "glaze", "dryBrush"],
     "avoid": [
       "座標をAIが直接指定する",
-      "青や灰色のターバン線を顔へ持ち込む",
-      "暗い擦れ跡で眼窩を作る",
-      "白目を記号として描く",
-      "候補数を満たすために条件を緩める"
+      "白い点や棒で眼球を先に描く",
+      "青いターバン色を眼窩へ混ぜる",
+      "黒い閉じた輪郭で目を描く",
+      "数値だけで候補を選ぶ"
     ],
-    "review_note": "skin-tone + variableBrush + upper_faceを同時に満たす独立候補は3つしかなかった。これは候補不足ではなく、有効な既存線資産の量そのものを示すため、候補数を6から3へ合わせて条件は緩めない。"
+    "review_note": "round 13ではAが青い漏れや白い記号を増やさず、上顔面の肌色面を追加しMAEも13.9981から13.9500へ改善したため採用。B/Cは目位置へ白い塊を作り、禁止している記号化そのものだったため却下。次は明部ではなく眼窩の暗部だけを候補化する。"
   }
 }
