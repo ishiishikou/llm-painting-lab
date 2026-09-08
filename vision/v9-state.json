@@ -1,11 +1,12 @@
 {
-  "version": 5,
-  "review_round": 9,
+  "version": 6,
+  "review_round": 10,
   "frozen_base_phases": ["silhouette", "light_shadow"],
   "accepted_bundle_ids": [
     "semantic-eye_band-3189-75",
     "semantic-eye_band-3150-75",
-    "semantic-mid_face-3070-75"
+    "semantic-mid_face-3070-75",
+    "semantic-lower_face-4730-75"
   ],
   "accepted_passages": [
     {
@@ -19,42 +20,36 @@
     {
       "bundle_id": "semantic-mid_face-3070-75",
       "source_stroke_ids": [2542,2546,2576,2587,2599,2653,2778,2823,2834,2866,2890,2921,2944,2972,3012,3059,3070,3134,3144,3212,3223,3263,3337,3341,3344,3353,3373,3418,3515,3518,3559,3636,3658,3684,3690,3719,3721,3725,3735,3746,3755,3811,3869,3926,3930,3954,3978,3990,4006,4036,4054,4090,4091,4113,4187,4191,4204,4232,4241,4267,4303,4311,4321,4342,4403,4409,4416,4428,4436,4483,4657,4730,4771,4808,4842]
+    },
+    {
+      "bundle_id": "semantic-lower_face-4730-75",
+      "source_stroke_ids": [2542,2546,2576,2630,2757,2834,2866,2890,2921,2944,2972,3012,3059,3134,3144,3212,3223,3337,3341,3344,3353,3373,3418,3515,3547,3559,3636,3684,3690,3715,3719,3725,3746,3755,3840,3849,3869,3892,3926,3930,3978,3990,4006,4009,4054,4087,4088,4090,4091,4148,4187,4191,4204,4232,4241,4273,4321,4324,4342,4400,4409,4416,4428,4436,4464,4483,4492,4557,4657,4707,4730,4771,4808,4842,4875]
     }
   ],
   "rejected_bundle_ids": [
-    "semantic-eye_band-2498-75",
-    "semantic-eye_band-3758-75",
-    "semantic-eye_band-2693-75",
-    "semantic-eye_band-4651-75",
-    "semantic-eye_band-3495-75",
-    "semantic-eye_band-3844-75",
-    "semantic-eye_band-3815-75",
-    "semantic-eye_band-2956-75",
-    "semantic-eye_band-2798-75",
-    "semantic-eye_band-4141-75",
-    "semantic-mid_face-2498-75",
-    "semantic-mid_face-3063-75",
-    "semantic-mid_face-2502-75",
-    "semantic-mid_face-4721-75",
-    "semantic-mid_face-3266-75"
+    "semantic-lower_face-2491-75",
+    "semantic-lower_face-3516-75",
+    "semantic-lower_face-5181-75",
+    "semantic-lower_face-3381-75",
+    "semantic-lower_face-4652-75"
   ],
   "intent_card": {
     "region": "face",
-    "focus": "lower_face",
-    "goal": "採用済みの目・鼻頬passageを保持したまま、口の周囲から顎へつながる面をv7の既存顔構造passageから一仕事だけ選ぶ",
+    "focus": "eye_band",
+    "goal": "大きな顔構造passageを保持したまま、v7 detailの既存ストロークから眼球・瞼・眼窩の関係を少数のまとまりで補い、白い記号ではなく視線として読めるようにする",
     "candidate_mode": "semantic_passage",
     "candidate_count": 6,
-    "source_phases": ["face_structure"],
-    "min_strokes_per_candidate": 60,
-    "max_strokes_per_candidate": 90,
+    "source_phases": ["detail"],
+    "min_strokes_per_candidate": 18,
+    "max_strokes_per_candidate": 30,
     "avoid_brushes": ["line", "mixerBrush", "smudgeBrush", "glaze"],
     "avoid": [
       "座標をAIが直接指定する",
-      "唇を赤い一本線として強調する",
-      "顎の輪郭を硬い線で囲う",
-      "採用済みの鼻頬を塗り潰す",
-      "細線の密度だけで完成度を上げようとする"
+      "白目を棒や点として強調する",
+      "閉じた輪郭記号として目を描く",
+      "顔全体へ均等に細線を散らす",
+      "候補が出たからという理由だけで採用する"
     ],
-    "review_note": "round 8ではBが鼻筋・小鼻・上唇へつながる暖色と影の面を追加し、鼻を輪郭線にせず立体として読みやすくしたため採用。MAEも14.0300から14.0013へ改善。Eは数値上最良だったが耳・顔外側寄りで今回の目的から外れた。"
+    "review_note": "round 9ではEだけが実際の口・鼻下周辺へ作用し、上唇から鼻下のつながりをわずかに整理した。MAE改善は小さいが、B/Fは顎下・首へ白黒の異物を作り、C/Dは顔外側、Aは頬外側だったため却下。大きな面はここで一旦止め、目の重要細部を18〜30筆のsemantic passageで試す。"
   }
 }
