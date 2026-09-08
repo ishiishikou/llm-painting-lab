@@ -3,7 +3,10 @@ import fs from "node:fs";
 const file = new URL("../strokes.json", import.meta.url);
 const data = JSON.parse(fs.readFileSync(file, "utf8"));
 const errors = [];
-const allowedBrushes = new Set(["line", "curve", "dab", "softDab", "dryBrush"]);
+const allowedBrushes = new Set([
+  "line", "curve", "dab", "softDab", "dryBrush",
+  "variableBrush", "mixerBrush", "smudgeBrush", "glaze"
+]);
 const bannedKeyPattern = /^(src|href|image|imageUrl|bitmap|texture|textureUrl|dataUrl)$/i;
 
 function walk(value, path = "root") {
