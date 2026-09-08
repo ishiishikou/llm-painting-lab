@@ -2,11 +2,22 @@
 import argparse
 import json
 import math
+from collections import defaultdict
 from pathlib import Path
 
 import imageio.v2 as imageio
 import numpy as np
 from PIL import Image, ImageDraw, ImageFont
+
+
+PHASE_WEIGHTS = {
+    'composition': 0.10,
+    'silhouette': 0.16,
+    'light_shadow': 0.25,
+    'face_structure': 0.15,
+    'detail': 0.23,
+    'finish': 0.11,
+}
 
 
 def parse_hex(value):
@@ -40,18 +51,26 @@ def apply_stroke(draw, stroke):
         x1, y1 = stroke['x1'], stroke['y1']
         x2, y2 = stroke['x2'], stroke['y2']
         draw.line((x1, y1, x2, y2), fill=fill, width=width)
-        if width >= 3:
+        if stroke.get('lineCap', 'round') == 'round' and width >= 3:
             radius = width / 2
-            draw.ellipse((x1 - radius, y1 - radius, x1 + radius, y1 + radius), fill=fill)
-            draw.ellipse((x2 - radius, y2 - radius, x2 + radius, y2 + radius), fill=fill)
-    elif brush == 'ellipse':
-        x, y = stroke['x'], stroke['y']
-        rx, ry = stroke.get('rx', 10), stroke.get('ry', 10)
-        draw.ellipse((x - rx, y - ry, x + rx, y + ry), fill=fill)
+            draw.ellipse((x1-radius, y1-radius, x1+radius, y1+radius), fill=fill)
+            draw.ellipse((x2-radius, y2-radius, x2+radius, y2+radius), fill=fill)
+
+
+def phase_slices(strokes, phase_order):
+    indices = defaultdict(list)
+    for idx, stroke in enumerate(strokes):
+        indices[stroke.get('phase')].append(idx)
+    result = []
+    for phase in phase_order:
+        values = indices.get(phase, [])
+        if values:
+            result.append((phase, values[0], values[-1] + 1))
+    return result
 
 
 def main():
-    parser = argparse.ArgumentParser(description='6段階のストローク文書から、日本語進捗付きMP4を生成する')
+    parser = argparse.ArgumentParser(description='工程ごとの時間配分で、日本語進捗付きMP4を生成する')
     parser.add_argument('input')
     parser.add_argument('--output', default='replay.mp4')
     parser.add_argument('--seconds', type=float, default=82.0)
@@ -61,38 +80,19 @@ def main():
 
     document = json.loads(Path(args.input).read_text(encoding='utf-8'))
     strokes = document.get('strokes', [])
-    total = len(strokes)
-    if total == 0:
+    if not strokes:
         raise SystemExit('ストロークがありません')
+
+    phase_order = [p['id'] for p in document.get('phases', [])]
+    labels = {p['id']: p.get('label', p['id']) for p in document.get('phases', [])}
+    slices = phase_slices(strokes, phase_order)
+    total = len(strokes)
 
     canvas_width = document['canvas']['width']
     canvas_height = document['canvas']['height']
     background = parse_hex(document['canvas'].get('background', '#111318'))
-    labels = {phase['id']: phase.get('label', phase['id']) for phase in document.get('phases', [])}
 
-    boundaries = []
-    previous = None
-    for index, stroke in enumerate(strokes, 1):
-        phase = stroke.get('phase')
-        if phase != previous:
-            boundaries.append((index, phase))
-            previous = phase
-
-    hold_frames = max(1, args.fps // 2)
-    opening_frames = args.fps
-    ending_frames = args.fps * 2
-    main_frames = max(
-        2,
-        int(args.seconds * args.fps) - len(boundaries) * hold_frames - opening_frames - ending_frames,
-    )
-    targets = []
-    for index in range(main_frames):
-        target = max(1, round(total * index / (main_frames - 1)))
-        if not targets or target != targets[-1]:
-            targets.append(target)
-    targets[-1] = total
-
-    header_height = 116
+    header_height = 126
     output_width = args.width
     output_height = math.ceil((canvas_height + header_height) * output_width / canvas_width)
     if output_height % 2:
@@ -106,61 +106,75 @@ def main():
 
     painting = Image.new('RGB', (canvas_width, canvas_height), background)
     painting_draw = ImageDraw.Draw(painting, 'RGBA')
-    current = 0
-    previous_phase = None
 
     writer = imageio.get_writer(
-        args.output,
-        fps=args.fps,
-        codec='libx264',
-        macro_block_size=1,
-        quality=7,
+        args.output, fps=args.fps, codec='libx264',
+        macro_block_size=1, quality=7
     )
 
-    def append_frame(index, note=''):
+    total_frames = max(1, int(args.seconds * args.fps))
+    opening_frames = args.fps * 2
+    ending_frames = args.fps * 2
+    usable = max(1, total_frames - opening_frames - ending_frames)
+
+    raw_weights = [PHASE_WEIGHTS.get(phase, 1/len(slices)) for phase,_,_ in slices]
+    weight_sum = sum(raw_weights) or 1
+    phase_frames = [max(1, round(usable * w / weight_sum)) for w in raw_weights]
+    phase_frames[-1] += usable - sum(phase_frames)
+
+    phase_number = {phase: i+1 for i,(phase,_,_) in enumerate(slices)}
+
+    def append_frame(index, phase_id=None, phase_progress=0.0, note=''):
         page = Image.new('RGB', (canvas_width, canvas_height + header_height), 'white')
         page.paste(painting, (0, header_height))
-        page_draw = ImageDraw.Draw(page)
-        if index:
-            phase_id = strokes[index - 1].get('phase')
-            phase_label = labels.get(phase_id, phase_id or '—')
-        else:
+        d = ImageDraw.Draw(page)
+        if phase_id is None:
             phase_label = '開始前'
-        progress = index / total * 100
-        page_draw.text((18, 10), 'LLM Painting Lab　人間の描画順リプレイ', fill='black', font=font_title)
-        page_draw.text(
-            (18, 43),
-            f'{index:,} / {total:,} ストローク　{progress:5.1f}%　工程: {phase_label}',
-            fill='black',
-            font=font_main,
-        )
-        page_draw.text(
-            (18, 77),
-            note or '構図 → シルエット → 明暗の面 → 顔構造 → 細部 → 仕上げ',
-            fill=(65, 65, 65),
-            font=font_small,
+            phase_no = 0
+        else:
+            phase_label = labels.get(phase_id, phase_id)
+            phase_no = phase_number.get(phase_id, 0)
+        d.text((18, 9), 'LLM Painting Lab　画家に近い描画工程リプレイ', fill='black', font=font_title)
+        if phase_id:
+            d.text(
+                (18, 43),
+                f'工程 {phase_no} / {len(slices)}　{phase_label}　工程内 {phase_progress:5.1f}%',
+                fill='black', font=font_main
+            )
+        else:
+            d.text((18,43),'地塗り済みキャンバスから開始',fill='black',font=font_main)
+        d.text(
+            (18, 78),
+            note or '背景の細かな更新は省き、人物の描画工程を中心に再生します',
+            fill=(65,65,65), font=font_small
         )
         resized = page.resize((output_width, output_height), Image.Resampling.BILINEAR)
         writer.append_data(np.asarray(resized))
 
     for _ in range(opening_frames):
-        append_frame(0, '6段階の描画順をそのまま再生します')
+        append_frame(0, note='背景は地塗りとして最初から置き、人物の描写を追います')
 
-    for target in targets:
-        while current < target:
+    current = 0
+    for (phase_id, start, end), frames_for_phase in zip(slices, phase_frames):
+        while current < start:
             apply_stroke(painting_draw, strokes[current])
             current += 1
+        count = end - start
+        for frame_index in range(frames_for_phase):
+            target = start + max(1, round(count * (frame_index + 1) / frames_for_phase))
+            target = min(target, end)
+            while current < target:
+                apply_stroke(painting_draw, strokes[current])
+                current += 1
+            progress = (current - start) / max(1, count) * 100
+            append_frame(current, phase_id, progress, '工程切替' if frame_index == 0 else '')
 
-        current_phase = strokes[current - 1].get('phase')
-        transitioned = current_phase != previous_phase
-        append_frame(current, '工程切替' if transitioned else '')
-        if transitioned:
-            for _ in range(hold_frames - 1):
-                append_frame(current, '工程切替')
-            previous_phase = current_phase
+    while current < total:
+        apply_stroke(painting_draw, strokes[current])
+        current += 1
 
     for _ in range(ending_frames):
-        append_frame(total, '完成')
+        append_frame(total, slices[-1][0], 100.0, '完成')
 
     writer.close()
     print(json.dumps({
@@ -168,7 +182,9 @@ def main():
         'seconds': args.seconds,
         'fps': args.fps,
         'strokes': total,
-        'phase_order': [phase for _, phase in boundaries],
+        'phase_frames': {
+            phase: frames for (phase,_,_),frames in zip(slices,phase_frames)
+        },
     }, ensure_ascii=False))
 
 
