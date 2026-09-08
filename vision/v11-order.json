@@ -1,0 +1,45 @@
+{
+  "version": 1,
+  "mode": "order-only",
+  "source": "artifact-cleanup-v6-full-stroke-set",
+  "constraints": {
+    "all_source_strokes_required": true,
+    "selection_allowed": false,
+    "rejection_allowed": false,
+    "geometry_changes_allowed": false,
+    "color_changes_allowed": false,
+    "brush_changes_allowed": false,
+    "final_equivalence_required": true,
+    "preserve_canvas_dependent_brush_barriers": true
+  },
+  "human_order": {
+    "principle": "大きな面から入り、顔の立体を整えてから目鼻口・真珠など焦点部へ進む。完成に必要な線は1本も捨てず、独立して入れ替え可能な仕事の順序だけを変える。",
+    "phase_priority": [
+      "composition",
+      "silhouette",
+      "light_shadow",
+      "face_structure",
+      "detail",
+      "finish"
+    ],
+    "semantic_priority": [
+      "background",
+      "subject",
+      "headwrap",
+      "garment",
+      "face",
+      "nose",
+      "mouth",
+      "eye",
+      "pearl",
+      "accent"
+    ],
+    "brush_size_priority": "broad-to-fine"
+  },
+  "landmarks": {
+    "engine": "MediaPipe Face Landmarker",
+    "delegate": "CPU",
+    "reference_only": true,
+    "purpose": "ストロークを移動するためではなく、既存ストロークが目・鼻・口・顔のどこに属するかを意味付けして順序を決めるためだけに使う"
+  }
+}

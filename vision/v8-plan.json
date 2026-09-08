@@ -1,0 +1,183 @@
+{
+  "version": 1,
+  "review_round": 1,
+  "seed": 20260908,
+  "canvas": {
+    "width": 864,
+    "height": 1024,
+    "background": "#21180d"
+  },
+  "review_policy": {
+    "reference_used_by_generator": false,
+    "next_action_decided_by": "AI visual comparison of reference and current preview",
+    "batch_rule": "one semantic painting intention per action; re-render before adding the next review round"
+  },
+  "actions": [
+    {
+      "id": "r1-garment-underpaint",
+      "review_round": 1,
+      "enabled": true,
+      "phase": "silhouette",
+      "intent": "place the large ochre jacket mass before any detail",
+      "decision": "The lower-right half is one broad dark ochre garment mass; establish it with sparse dry strokes, not contour lines.",
+      "brush": "dryBrush",
+      "shape": {
+        "type": "polygon",
+        "points": [[0.29,0.61],[0.43,0.55],[0.65,0.57],[0.79,0.72],[0.83,1.00],[0.27,1.00]]
+      },
+      "color": "#725b35",
+      "count": 42,
+      "length": 118,
+      "width": 42,
+      "opacity": 0.46,
+      "flow": "vertical_folds",
+      "bend_deg": 29,
+      "frequency": 2.3,
+      "angle_jitter_deg": 7,
+      "length_jitter": 0.28,
+      "width_jitter": 0.20,
+      "strands": 8
+    },
+    {
+      "id": "r1-garment-body",
+      "review_round": 1,
+      "enabled": true,
+      "phase": "silhouette",
+      "intent": "make the jacket read as a single body mass",
+      "decision": "The jacket is darker and more continuous than the collar; overlap broad strokes so the underpaint does not remain as isolated bars.",
+      "brush": "flatBrush",
+      "shape": {
+        "type": "polygon",
+        "points": [[0.31,0.63],[0.45,0.57],[0.64,0.59],[0.77,0.74],[0.80,1.00],[0.30,1.00]]
+      },
+      "color": "#8a6d3d",
+      "count": 34,
+      "length": 105,
+      "width": 47,
+      "opacity": 0.55,
+      "flow": "vertical_folds",
+      "bend_deg": 26,
+      "frequency": 2.0,
+      "angle_jitter_deg": 6,
+      "length_jitter": 0.24,
+      "width_jitter": 0.17
+    },
+    {
+      "id": "r1-face-mass",
+      "review_round": 1,
+      "enabled": true,
+      "phase": "silhouette",
+      "intent": "establish the turned head as one warm oval mass",
+      "decision": "The face is a left-facing oval occupying roughly the central-left third; avoid internal features until the mass is convincing.",
+      "brush": "flatBrush",
+      "shape": {
+        "type": "ellipse",
+        "bbox": [0.27,0.29,0.64,0.61]
+      },
+      "color": "#a9785c",
+      "count": 38,
+      "length": 66,
+      "width": 31,
+      "opacity": 0.58,
+      "flow": "ellipse_tangent",
+      "angle_jitter_deg": 8,
+      "length_jitter": 0.22,
+      "width_jitter": 0.16
+    },
+    {
+      "id": "r1-blue-wrap",
+      "review_round": 1,
+      "enabled": true,
+      "phase": "silhouette",
+      "intent": "place the dominant blue headwrap mass",
+      "decision": "The blue wrap spans from above the forehead across the skull to the right; it must read as one wrapped band before folds are added.",
+      "brush": "flatBrush",
+      "shape": {
+        "type": "polygon",
+        "points": [[0.29,0.27],[0.36,0.19],[0.54,0.16],[0.70,0.22],[0.73,0.39],[0.63,0.49],[0.50,0.42],[0.32,0.34]]
+      },
+      "color": "#4f7190",
+      "count": 34,
+      "length": 92,
+      "width": 38,
+      "opacity": 0.64,
+      "flow": "horizontal_wrap",
+      "angle_deg": 8,
+      "bend_deg": 22,
+      "angle_jitter_deg": 7,
+      "length_jitter": 0.20,
+      "width_jitter": 0.15
+    },
+    {
+      "id": "r1-yellow-crown",
+      "review_round": 1,
+      "enabled": true,
+      "phase": "silhouette",
+      "intent": "establish the yellow crown of the turban",
+      "decision": "The yellow crown is a compact cap-like mass above and behind the blue band, not a set of thin stripes.",
+      "brush": "flatBrush",
+      "shape": {
+        "type": "ellipse",
+        "bbox": [0.49,0.10,0.75,0.25]
+      },
+      "color": "#b99955",
+      "count": 18,
+      "length": 68,
+      "width": 31,
+      "opacity": 0.62,
+      "flow": "horizontal_wrap",
+      "angle_deg": 4,
+      "bend_deg": 18,
+      "angle_jitter_deg": 6,
+      "length_jitter": 0.18,
+      "width_jitter": 0.14
+    },
+    {
+      "id": "r1-hanging-cloth",
+      "review_round": 1,
+      "enabled": true,
+      "phase": "silhouette",
+      "intent": "place the long hanging yellow cloth behind the head",
+      "decision": "A long, narrow cloth drops behind the head on the right; keep it separate from the face and jacket masses.",
+      "brush": "flatBrush",
+      "shape": {
+        "type": "polygon",
+        "points": [[0.67,0.18],[0.76,0.22],[0.79,0.48],[0.82,0.73],[0.75,0.78],[0.68,0.55],[0.65,0.31]]
+      },
+      "color": "#b18f4f",
+      "count": 28,
+      "length": 104,
+      "width": 31,
+      "opacity": 0.61,
+      "flow": "vertical_folds",
+      "bend_deg": 13,
+      "frequency": 1.7,
+      "angle_jitter_deg": 5,
+      "length_jitter": 0.22,
+      "width_jitter": 0.14
+    },
+    {
+      "id": "r1-collar",
+      "review_round": 1,
+      "enabled": true,
+      "phase": "silhouette",
+      "intent": "separate the neck and jacket with the broad white collar",
+      "decision": "The white collar is a strong curved wedge between the face/neck and the ochre jacket; place it broadly now because it controls the shoulder silhouette.",
+      "brush": "flatBrush",
+      "shape": {
+        "type": "polygon",
+        "points": [[0.42,0.57],[0.50,0.55],[0.65,0.57],[0.72,0.62],[0.66,0.65],[0.50,0.62],[0.40,0.67],[0.38,0.64]]
+      },
+      "color": "#d5cdb4",
+      "count": 14,
+      "length": 72,
+      "width": 24,
+      "opacity": 0.68,
+      "flow": "fixed",
+      "angle_deg": -16,
+      "angle_jitter_deg": 12,
+      "length_jitter": 0.20,
+      "width_jitter": 0.14
+    }
+  ]
+}
