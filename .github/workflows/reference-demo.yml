@@ -39,7 +39,7 @@ jobs:
           fi
           test -s reference.jpg
 
-      - name: Generate strokes in actual human painting order
+      - name: Generate painter-like process strokes
         run: |
           mkdir -p artifact/src artifact/checkpoints
           python tools/reference_to_human_strokes.py reference.jpg \
@@ -49,11 +49,11 @@ jobs:
             --checkpoint-dir artifact/checkpoints \
             --width 864 \
             --height 1024 \
-            --detail 45000 \
-            --finish 30000
+            --detail 30000 \
+            --finish 18000
           cp artifact/strokes.generated.json artifact/strokes.painterly.json
 
-      - name: Render slow replay video with Japanese progress text
+      - name: Render phase-weighted replay video with Japanese progress text
         run: |
           python tools/render_replay_video.py artifact/strokes.generated.json \
             --output artifact/replay-human-order.mp4 \
@@ -94,20 +94,24 @@ jobs:
               raise SystemExit(f'6工程の実描画順が不正です: {actual}')
           if data['metadata'].get('phase_order') != expected:
               raise SystemExit('metadata.phase_order が6工程と一致しません')
-          if len(strokes) < 90000:
-              raise SystemExit('ストローク数が9万未満です')
-          if counts['composition'] > 100:
+          if data['metadata'].get('background_policy') != 'toned-ground-no-progress':
+              raise SystemExit('背景が地塗り扱いになっていません')
+          if len(strokes) < 45000:
+              raise SystemExit('ストローク数が少なすぎます')
+          if counts['composition'] > 50:
               raise SystemExit('構図工程が細かすぎます')
-          if counts['silhouette'] < 400:
-              raise SystemExit('シルエット工程の大きな形が不足しています')
-          if counts['light_shadow'] < 12000:
+          if counts['silhouette'] < 500:
+              raise SystemExit('大きな形のブロックインが不足しています')
+          if counts['light_shadow'] < 2500:
               raise SystemExit('明暗の面工程が不足しています')
-          if counts['face_structure'] < 2000:
+          if counts['face_structure'] < 1500:
               raise SystemExit('顔構造工程が不足しています')
-          if counts['detail'] < 40000:
+          if counts['detail'] < 25000:
               raise SystemExit('細部工程が不足しています')
-          if counts['finish'] < 25000:
+          if counts['finish'] < 15000:
               raise SystemExit('仕上げ工程が不足しています')
+          if any(stroke.get('brush') == 'ellipse' for stroke in strokes):
+              raise SystemExit('円形スタンプが残っています')
           if any('image' in str(stroke).lower() for stroke in strokes):
               raise SystemExit('生成ストローク内に画像参照が含まれています')
 
@@ -142,21 +146,23 @@ jobs:
           cp strokes.json artifact/strokes.json
           gzip -k artifact/strokes.generated.json
           cat > artifact/README.txt <<'TXT'
-          人間の描画順を模した参照画像ガイド描画の成果物です。
-
-          今回は、完成後にストロークを並べ替えているのではありません。
-          ストローク生成そのものを以下の6工程に分離しています。
+          画家のブロックインに近い描画工程を模した成果物です。
 
           1. 構図
-          2. シルエット
+          2. 大きな形
           3. 明暗の面
           4. 顔構造
           5. 細部
           6. 仕上げ
 
+          以前の円形スタンプによる格子状ブロックインは廃止しました。
+          序盤は長く太い筆致で人物の大きな塊を置きます。
+
+          背景は地塗りとして最初から置き、細かな背景更新に動画時間を使いません。
+          リプレイ動画はストローク数比例ではなく工程ごとに時間を配分します。
+
           checkpoints/:
-            各工程が終わった時点の画像です。
-            実際に上記の順で絵が立ち上がっていることを確認できます。
+            各工程終了時点の画像。
 
           preview.png:
             最終完成画像。
@@ -165,14 +171,10 @@ jobs:
             6工程の順で生成された全ストロークデータ。
 
           replay-human-order.mp4:
-            日本語進捗表示付きのゆっくり描画リプレイ。
+            日本語進捗表示付きの工程比例リプレイ。
 
           metrics.json:
-            工程ごとのストローク数と最終品質指標。
-
-          Webビューア:
-            このフォルダをHTTPサーバーで公開し、
-            /?mode=generated を開くと同じストロークを再生できます。
+            工程ごとのストローク数と品質指標。
           TXT
 
       - name: Upload demo artifact
