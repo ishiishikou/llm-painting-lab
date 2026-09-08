@@ -1,6 +1,6 @@
 {
   "version": 3,
-  "review_round": 4,
+  "review_round": 5,
   "frozen_base_phases": ["silhouette", "light_shadow", "face_structure"],
   "accepted_bundle_ids": [],
   "rejected_bundle_ids": [
@@ -9,26 +9,32 @@
     "micro-0066",
     "passage-0099",
     "passage-0096",
-    "passage-0094"
+    "passage-0094",
+    "passage-0199",
+    "passage-0189",
+    "passage-0156",
+    "passage-0163",
+    "passage-0162",
+    "passage-0191"
   ],
   "intent_card": {
     "region": "face",
-    "focus": "whole_face",
-    "goal": "v7で既に成立していた顔構造はそのまま利用し、AIは参照画と現在画を見て、人なら今ここへ足すと判断できる詳細線のpassageだけを選ぶ",
+    "focus": "eye_band",
+    "goal": "v7の顔構造を土台に、目の周囲へ人なら足す意味がある既存detail passageだけを選び、白い記号ではなく眼窩と眼球の関係が読める方向へ近づける",
     "candidate_mode": "passage",
     "candidate_count": 6,
-    "preferred_families": ["structure", "accent"],
-    "source_phases": ["detail", "finish"],
+    "preferred_families": ["edge", "structure", "accent"],
+    "source_phases": ["detail"],
     "min_strokes_per_candidate": 10,
     "max_strokes_per_candidate": 18,
     "avoid_brushes": ["mixerBrush", "smudgeBrush"],
     "avoid": [
       "座標をAIが直接指定する",
-      "v7で既に描けていた顔構造を低レベルから描き直す",
       "候補にあるからという理由だけで線を足す",
-      "顔全体へ均等に細線を増やす",
-      "記号的な白目・口・輪郭を作る"
+      "白目を明るい棒や点として強調する",
+      "閉じた輪郭記号として目を描く",
+      "顔全体へ均等に細線を増やす"
     ],
-    "review_note": "round 3では粗いlight_shadow土台へ19筆を足しても変化が小さく、候補位置も顔外へ散った。モデルに低レベル構築を背負わせず、v7のface_structureまでを確立済み資産として固定し、以降の線の採否だけを視覚判断する。"
+    "review_note": "round 4の6候補は、A/Dがターバン周辺、Bが襟・肩、Cが額縁付近、Fが顎寄りで目的外。Eだけ目周辺だったが、細い縦線を足しても白い記号感を改善せず、数値もわずかに悪化したため全却下。次はdetail由来かつeye_bandを優先する。"
   }
 }
