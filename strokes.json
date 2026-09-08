@@ -1,0 +1,60 @@
+{
+  "version": 1,
+  "canvas": { "width": 768, "height": 1024, "background": "#10141a" },
+  "metadata": {
+    "title": "Portrait study MVP",
+    "slug": "portrait-study-mvp",
+    "notes": "No raster source image is loaded. This file contains only ordered logical brush strokes."
+  },
+  "phases": [
+    { "id": "background", "label": "Background" },
+    { "id": "silhouette", "label": "Silhouette" },
+    { "id": "face-light", "label": "Face light and shadow" },
+    { "id": "features", "label": "Facial features" },
+    { "id": "headwear", "label": "Headwear" },
+    { "id": "garment", "label": "Garment" },
+    { "id": "accent", "label": "Accents" }
+  ],
+  "strokes": [
+    { "id": 1, "phase": "background", "brush": "softDab", "x": 370, "y": 470, "radius": 360, "color": "#182029", "opacity": 0.9 },
+    { "id": 2, "phase": "background", "brush": "softDab", "x": 110, "y": 180, "radius": 220, "color": "#25303b", "opacity": 0.22 },
+    { "id": 3, "phase": "background", "brush": "dryBrush", "x1": 70, "y1": 820, "x2": 690, "y2": 860, "width": 90, "spread": 100, "strands": 34, "seed": 31, "color": "#0a0d11", "opacity": 0.65 },
+
+    { "id": 10, "phase": "silhouette", "brush": "softDab", "x": 392, "y": 510, "radius": 215, "color": "#2a2020", "opacity": 0.72 },
+    { "id": 11, "phase": "silhouette", "brush": "curve", "x1": 305, "y1": 300, "cx1": 230, "cy1": 405, "cx2": 240, "cy2": 650, "x2": 370, "y2": 735, "width": 120, "color": "#c99478", "opacity": 0.88 },
+    { "id": 12, "phase": "silhouette", "brush": "curve", "x1": 430, "y1": 310, "cx1": 520, "cy1": 390, "cx2": 535, "cy2": 600, "x2": 420, "y2": 735, "width": 120, "color": "#b87e64", "opacity": 0.92 },
+    { "id": 13, "phase": "silhouette", "brush": "softDab", "x": 380, "y": 520, "radius": 150, "color": "#d8a185", "opacity": 0.7 },
+
+    { "id": 20, "phase": "face-light", "brush": "softDab", "x": 332, "y": 430, "radius": 105, "color": "#f3c6a5", "opacity": 0.52 },
+    { "id": 21, "phase": "face-light", "brush": "softDab", "x": 315, "y": 540, "radius": 96, "color": "#efb895", "opacity": 0.38 },
+    { "id": 22, "phase": "face-light", "brush": "softDab", "x": 454, "y": 505, "radius": 110, "color": "#7f4f49", "opacity": 0.32 },
+    { "id": 23, "phase": "face-light", "brush": "curve", "x1": 300, "y1": 385, "cx1": 350, "cy1": 360, "x2": 405, "y2": 378, "width": 18, "color": "#f6d2b5", "opacity": 0.55 },
+    { "id": 24, "phase": "face-light", "brush": "curve", "x1": 286, "y1": 590, "cx1": 340, "cy1": 642, "x2": 420, "y2": 626, "width": 20, "color": "#9a5e55", "opacity": 0.3 },
+    { "id": 25, "phase": "face-light", "brush": "dryBrush", "x1": 460, "y1": 388, "x2": 465, "y2": 620, "width": 38, "spread": 42, "strands": 22, "seed": 75, "color": "#68413d", "opacity": 0.38 },
+
+    { "id": 30, "phase": "features", "brush": "curve", "x1": 292, "y1": 454, "cx1": 318, "cy1": 437, "x2": 347, "y2": 453, "width": 7, "color": "#4b302f", "opacity": 0.9 },
+    { "id": 31, "phase": "features", "brush": "dab", "x": 324, "y": 451, "radius": 6, "color": "#17191b", "opacity": 0.95 },
+    { "id": 32, "phase": "features", "brush": "dab", "x": 326, "y": 449, "radius": 2, "color": "#f1ded1", "opacity": 0.95 },
+    { "id": 33, "phase": "features", "brush": "curve", "x1": 405, "y1": 467, "cx1": 430, "cy1": 450, "x2": 454, "y2": 466, "width": 7, "color": "#4a2f2e", "opacity": 0.88 },
+    { "id": 34, "phase": "features", "brush": "dab", "x": 430, "y": 465, "radius": 6, "color": "#17191b", "opacity": 0.96 },
+    { "id": 35, "phase": "features", "brush": "dab", "x": 432, "y": 463, "radius": 2, "color": "#f1ded1", "opacity": 0.94 },
+    { "id": 36, "phase": "features", "brush": "curve", "x1": 372, "y1": 480, "cx1": 366, "cy1": 525, "x2": 383, "y2": 550, "width": 7, "color": "#9b6556", "opacity": 0.68 },
+    { "id": 37, "phase": "features", "brush": "curve", "x1": 337, "y1": 583, "cx1": 376, "cy1": 603, "x2": 421, "y2": 584, "width": 9, "color": "#8d3f49", "opacity": 0.85 },
+    { "id": 38, "phase": "features", "brush": "curve", "x1": 348, "y1": 589, "cx1": 378, "cy1": 596, "x2": 410, "y2": 588, "width": 3, "color": "#efb1a5", "opacity": 0.65 },
+
+    { "id": 40, "phase": "headwear", "brush": "curve", "x1": 232, "y1": 330, "cx1": 295, "cy1": 180, "cx2": 485, "cy2": 165, "x2": 548, "y2": 330, "width": 95, "color": "#2f5e83", "opacity": 0.98 },
+    { "id": 41, "phase": "headwear", "brush": "curve", "x1": 335, "y1": 225, "cx1": 415, "cy1": 180, "x2": 565, "y2": 285, "width": 74, "color": "#c79e43", "opacity": 0.93 },
+    { "id": 42, "phase": "headwear", "brush": "dryBrush", "x1": 250, "y1": 272, "x2": 486, "y2": 210, "width": 38, "spread": 45, "strands": 28, "seed": 42, "color": "#568db5", "opacity": 0.52 },
+    { "id": 43, "phase": "headwear", "brush": "dryBrush", "x1": 395, "y1": 205, "x2": 550, "y2": 300, "width": 30, "spread": 36, "strands": 22, "seed": 43, "color": "#ead47e", "opacity": 0.36 },
+
+    { "id": 50, "phase": "garment", "brush": "curve", "x1": 255, "y1": 715, "cx1": 205, "cy1": 850, "x2": 158, "y2": 985, "width": 155, "color": "#57443c", "opacity": 0.95 },
+    { "id": 51, "phase": "garment", "brush": "curve", "x1": 450, "y1": 715, "cx1": 520, "cy1": 850, "x2": 612, "y2": 985, "width": 178, "color": "#6f4d35", "opacity": 0.96 },
+    { "id": 52, "phase": "garment", "brush": "dryBrush", "x1": 205, "y1": 785, "x2": 575, "y2": 930, "width": 85, "spread": 90, "strands": 34, "seed": 52, "color": "#a8794b", "opacity": 0.28 },
+
+    { "id": 60, "phase": "accent", "brush": "line", "x1": 500, "y1": 540, "x2": 518, "y2": 625, "width": 5, "color": "#e4ded3", "opacity": 0.72 },
+    { "id": 61, "phase": "accent", "brush": "softDab", "x": 520, "y": 652, "radius": 31, "color": "#f1eee3", "opacity": 0.84 },
+    { "id": 62, "phase": "accent", "brush": "dab", "x": 510, "y": 642, "radius": 8, "color": "#ffffff", "opacity": 0.92 },
+    { "id": 63, "phase": "accent", "brush": "dryBrush", "x1": 275, "y1": 350, "x2": 290, "y2": 665, "width": 22, "spread": 25, "strands": 16, "seed": 63, "color": "#f2c8aa", "opacity": 0.22 },
+    { "id": 64, "phase": "accent", "brush": "dryBrush", "x1": 480, "y1": 370, "x2": 478, "y2": 650, "width": 24, "spread": 28, "strands": 16, "seed": 64, "color": "#542f30", "opacity": 0.2 }
+  ]
+}
