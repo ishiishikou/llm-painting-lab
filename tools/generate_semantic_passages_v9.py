@@ -61,7 +61,11 @@ def eligible(s, intent, face):
         return False
     if s.get("role") not in {"face", "face-plane"}:
         return False
-    if s.get("brush") in set(intent.get("avoid_brushes", [])):
+    brush = s.get("brush")
+    allowed = intent.get("allow_brushes")
+    if allowed and brush not in set(allowed):
+        return False
+    if brush in set(intent.get("avoid_brushes", [])):
         return False
     if s.get("role") in {"face-center", "eye-line", "mouth-line"}:
         return False
