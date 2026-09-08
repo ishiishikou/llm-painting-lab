@@ -26,6 +26,12 @@ jobs:
           sudo apt-get install -y fonts-noto-cjk ffmpeg
           python -m pip install --disable-pip-version-check pillow imageio imageio-ffmpeg numpy
 
+      - name: Check tool implementations
+        run: |
+          python -m py_compile tools/reference_to_brush_process.py tools/render_brush_motion_video.py
+          node --check src/brushes.js
+          test -s docs/painting-tool-rules.md
+
       - name: Download public-domain reference
         shell: bash
         run: |
@@ -39,7 +45,7 @@ jobs:
           fi
           test -s reference.jpg
 
-      - name: Generate brush-motion painting process
+      - name: Generate painting-tools v4 process
         run: |
           mkdir -p artifact/src artifact/checkpoints
           python tools/reference_to_brush_process.py reference.jpg \
@@ -53,15 +59,15 @@ jobs:
             --finish 10000
           cp artifact/strokes.generated.json artifact/strokes.painterly.json
 
-      - name: Render replay with visible brush motion
+      - name: Render replay with visible tool usage
         run: |
           python tools/render_brush_motion_video.py artifact/strokes.generated.json \
-            --output artifact/replay-brush-motion.mp4 \
+            --output artifact/replay-painting-tools.mp4 \
             --seconds 90 \
             --fps 12 \
             --width 640
 
-      - name: Verify painter-like stages and brush usage
+      - name: Verify six stages and tool selection policy
         run: |
           python - <<'PY'
           import json
@@ -70,14 +76,7 @@ jobs:
 
           data = json.loads(Path('artifact/strokes.generated.json').read_text())
           strokes = data['strokes']
-          expected = [
-              'composition',
-              'silhouette',
-              'light_shadow',
-              'face_structure',
-              'detail',
-              'finish',
-          ]
+          expected = ['composition','silhouette','light_shadow','face_structure','detail','finish']
 
           actual = []
           for stroke in strokes:
@@ -85,11 +84,13 @@ jobs:
               if not actual or actual[-1] != phase:
                   actual.append(phase)
 
-          phase_counts = Counter(stroke['phase'] for stroke in strokes)
-          brush_counts = Counter(stroke['brush'] for stroke in strokes)
+          phase_counts = Counter(s['phase'] for s in strokes)
+          brush_counts = Counter(s['brush'] for s in strokes)
+          masked = sum(1 for s in strokes if s.get('clipBox'))
           print('phase order:', actual)
           print('phase counts:', dict(phase_counts))
           print('brush counts:', dict(brush_counts))
+          print('masked strokes:', masked)
           print('total strokes:', len(strokes))
 
           if actual != expected:
@@ -98,13 +99,15 @@ jobs:
               raise SystemExit('metadata.phase_order が6工程と一致しません')
           if data['metadata'].get('background_policy') != 'toned-ground-no-progress':
               raise SystemExit('背景が地塗り扱いになっていません')
+          if data['metadata'].get('tool_policy') != 'docs/painting-tool-rules.md':
+              raise SystemExit('描画道具ルールへの参照がありません')
           if len(strokes) < 28000:
               raise SystemExit('ストローク数が少なすぎます')
           if phase_counts['composition'] > 20:
               raise SystemExit('構図工程が細かすぎます')
           if phase_counts['silhouette'] < 350:
               raise SystemExit('大きな形のブロックインが不足しています')
-          if phase_counts['light_shadow'] < 1200:
+          if phase_counts['light_shadow'] < 1500:
               raise SystemExit('明暗の面工程が不足しています')
           if phase_counts['face_structure'] < 800:
               raise SystemExit('顔構造工程が不足しています')
@@ -112,12 +115,33 @@ jobs:
               raise SystemExit('細部工程が不足しています')
           if phase_counts['finish'] < 8000:
               raise SystemExit('仕上げ工程が不足しています')
-          if brush_counts['dryBrush'] < 1200:
-              raise SystemExit('太筆・かすれ筆の使用量が不足しています')
-          if any(stroke.get('brush') == 'ellipse' for stroke in strokes):
+
+          required = {
+              'dryBrush': 1200,
+              'variableBrush': 1500,
+              'mixerBrush': 200,
+              'smudgeBrush': 80,
+              'glaze': 20,
+          }
+          for brush, minimum in required.items():
+              if brush_counts[brush] < minimum:
+                  raise SystemExit(f'{brush} の使用量が不足しています: {brush_counts[brush]} < {minimum}')
+          if masked < 1500:
+              raise SystemExit('Mask / Alpha Lock 相当の範囲制御が不足しています')
+          if any(s.get('brush') == 'ellipse' for s in strokes):
               raise SystemExit('円形スタンプが残っています')
-          if any('image' in str(stroke).lower() for stroke in strokes):
+          if any('image' in str(s).lower() for s in strokes):
               raise SystemExit('生成ストローク内に画像参照が含まれています')
+
+          # ルール違反の代表例を機械検査する。
+          if any(s['phase'] == 'composition' and s['brush'] in {'mixerBrush','smudgeBrush','glaze'} for s in strokes):
+              raise SystemExit('構図工程で混色/ぼかし/グレーズを使用しています')
+          if any(s['phase'] == 'silhouette' and s['brush'] in {'smudgeBrush','glaze'} for s in strokes):
+              raise SystemExit('大きな形工程でSmudge/Glazeを使用しています')
+          if any(s['phase'] == 'detail' and s['brush'] in {'smudgeBrush','glaze'} for s in strokes):
+              raise SystemExit('細部工程で広域調整系ブラシを使用しています')
+          if not any(s['phase'] == 'finish' and s['brush'] == 'glaze' for s in strokes):
+              raise SystemExit('仕上げ工程でGlazeが使われていません')
 
           metrics = json.loads(Path('artifact/metrics.json').read_text())['checkpoints']
           final = metrics[-1]
@@ -127,19 +151,11 @@ jobs:
           if final['psnr'] <= 18:
               raise SystemExit('完成画像のPSNRが低すぎます')
 
-          for name in [
-              '01-composition.png',
-              '02-silhouette.png',
-              '03-light-shadow.png',
-              '04-face-structure.png',
-              '05-detail.png',
-              '06-finish.png',
-          ]:
+          for name in ['01-composition.png','02-silhouette.png','03-light-shadow.png','04-face-structure.png','05-detail.png','06-finish.png']:
               if not (Path('artifact/checkpoints') / name).exists():
                   raise SystemExit(f'チェックポイントがありません: {name}')
-
-          if not Path('artifact/replay-brush-motion.mp4').exists():
-              raise SystemExit('筆運びリプレイ動画が生成されていません')
+          if not Path('artifact/replay-painting-tools.mp4').exists():
+              raise SystemExit('描画道具リプレイ動画が生成されていません')
           PY
 
       - name: Package replay viewer
@@ -147,35 +163,34 @@ jobs:
           cp index.html styles.css artifact/
           cp src/app.js src/brushes.js artifact/src/
           cp strokes.json artifact/strokes.json
+          cp docs/painting-tool-rules.md artifact/painting-tool-rules.md
           gzip -k artifact/strokes.generated.json
           cat > artifact/README.txt <<'TXT'
-          公開されている油彩制作過程を参考にした、筆運び主体の描画成果物です。
+          描画道具v4の成果物です。
 
-          1. 構図
-          2. 下塗り + 大きな形
-          3. 明暗と色面
-          4. 顔構造
-          5. 細部
-          6. 仕上げ
+          6工程の役割を維持したまま、次の道具を追加しています。
+          - dryBrush / 大きな平筆相当
+          - variableBrush / 入り・抜きのある筆
+          - mixerBrush / 下地色を拾いながら混ぜる筆
+          - smudgeBrush / 既存色を筆方向へ引きずる筆
+          - glaze / 低透明度の色膜
+          - clipBox / Mask・Alpha Lock 相当の描画範囲制御
 
-          序盤では色の四角いパッチを貼る方式を使わず、dryBrush による
-          長く太い筆致を重ねます。大きな形では暖色の下塗りを挟んでから
-          本来の色を置き、油彩のブロックインに近い進み方を狙います。
-
-          replay-brush-motion.mp4 は、主要ストロークを瞬間表示せず、
-          筆先が始点から終点へ移動して見えるよう途中状態を描画します。
-          背景は地塗りとして最初から置き、背景更新で動画時間を消費しません。
+          Mixer / Smudge は単純なGaussian Blurではなく、その時点のキャンバス色を参照します。
+          Glaze は仕上げ工程だけで薄く使います。
 
           checkpoints/: 各工程終了時点の画像
           preview.png: 最終完成画像
-          strokes.generated.json: 実際の描画順のストロークデータ
+          strokes.generated.json: 実際の描画順と道具情報
+          replay-painting-tools.mp4: 道具名を表示する描画リプレイ
+          painting-tool-rules.md: 道具の使い分けルール
           metrics.json: 工程ごとの品質指標
           TXT
 
       - name: Upload demo artifact
         uses: actions/upload-artifact@v4
         with:
-          name: brush-motion-demo
+          name: painting-tools-demo
           path: artifact/
           if-no-files-found: error
           retention-days: 14
