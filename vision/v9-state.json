@@ -1,6 +1,6 @@
 {
-  "version": 11,
-  "review_round": 15,
+  "version": 12,
+  "review_round": 16,
   "frozen_base_phases": ["silhouette", "light_shadow"],
   "accepted_bundle_ids": [
     "semantic-eye_band-3189-75",
@@ -21,14 +21,18 @@
   "rejected_bundle_ids": [
     "semantic-upper_face-3044-70",
     "semantic-upper_face-2987-70",
-    "semantic-eye_band-2752-24"
+    "semantic-eye_band-2752-24",
+    "semantic-eye_band-5743-5",
+    "semantic-eye_band-8106-5",
+    "semantic-eye_band-6189-5",
+    "semantic-eye_band-8102-5"
   ],
   "intent_card": {
     "region": "face",
-    "focus": "eye_band",
-    "goal": "眼窩の暗部が入ったので、白目を先に塗らず、v7 detailの既存線から瞼・虹彩・目尻として意味を持つ暗いアクセントだけを少数選ぶ",
+    "focus": "whole_face",
+    "goal": "推定face bboxのeye_bandが実際の目位置とずれていたため、位置帯を決め打ちせず、v7 detailの暗い既存線を顔全体から広く提示し、参照画と現在画を見て本当に目・瞼・虹彩へ作用する候補だけを選ぶ",
     "candidate_mode": "semantic_passage",
-    "candidate_count": 4,
+    "candidate_count": 8,
     "source_phases": ["detail"],
     "allow_brushes": ["line", "variableBrush"],
     "color_family": "eye_dark",
@@ -37,11 +41,11 @@
     "avoid_brushes": ["mixerBrush", "smudgeBrush", "glaze", "dryBrush", "flatBrush"],
     "avoid": [
       "座標をAIが直接指定する",
+      "誤ったface bboxの帯を目位置として信用する",
       "白い棒や点で眼球を描く",
       "黒い閉じた輪郭で目を囲う",
-      "青いターバン色を顔へ持ち込む",
       "候補があるからという理由だけで採用する"
     ],
-    "review_note": "round 14はAを採用。AはBより弱く自然に眼窩の暗部を追加し、MAEも13.9500から13.9322へ改善。Bは目を暗い記号へ寄せる懸念があるため却下。次は白目ではなく暗い目の構造を数筆だけ試す。"
+    "review_note": "round 15のA〜Dは暗色としては妥当だが、参照画に重ねて確認するとAは頬、C/Dは鼻周辺、Bも眼球そのものではなく鼻根寄りで、目を作る一手としては不適切だったため全却下。問題は線品質ではなく、推定face bboxから作ったeye_bandの位置ずれだった。次はwhole_faceから候補を出し、視覚判断で実際の目位置を選ぶ。"
   }
 }
