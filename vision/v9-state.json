@@ -1,22 +1,23 @@
 {
   "version": 1,
-  "review_round": 1,
+  "review_round": 2,
   "frozen_base_phases": ["silhouette", "light_shadow"],
   "accepted_bundle_ids": [],
-  "rejected_bundle_ids": [],
+  "rejected_bundle_ids": ["load-88", "micro-0098", "micro-0066"],
   "intent_card": {
     "region": "face",
-    "focus": "whole_face",
-    "goal": "大きな顔の面を壊さず、少数の既存ストロークで顔構造を成立させる",
-    "preferred_families": ["plane", "structure"],
+    "focus": "eye_band",
+    "goal": "顔全体へ散らさず、まず目の高さ周辺に構造を与えて顔として読める起点を作る",
+    "preferred_families": ["structure"],
     "source_phases": ["face_structure"],
-    "max_strokes_per_candidate": 7,
-    "avoid_brushes": ["smudgeBrush"],
+    "max_strokes_per_candidate": 6,
+    "avoid_brushes": ["mixerBrush", "smudgeBrush"],
     "avoid": [
       "座標をAIが直接指定する",
-      "白目や口を記号的な線で描く",
-      "細線を大量に追加して似せる",
-      "必要性を見ずにMixerやSmudgeを入れる"
-    ]
+      "白目を明るい棒として描く",
+      "目の輪郭を閉じた記号にする",
+      "顔全体へ均等に細線を散らす"
+    ],
+    "review_note": "round 1のA/B/Cは耳側・額・ターバン境界に散り、今必要な顔の読みやすさを上げなかったため全却下"
   }
 }
