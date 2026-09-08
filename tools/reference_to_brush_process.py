@@ -68,6 +68,7 @@ def inside(box,x,y,pad=0):
     x0,y0,x1,y1=box; return x0-pad<=x<=x1+pad and y0-pad<=y<=y1+pad
 
 def subject_pixel(p,bg): return dist(p,bg)>42 or lum(p)>lum(bg)+22
+def strong_subject_pixel(p,bg): return dist(p,bg)>58 or lum(p)>lum(bg)+30
 
 def region(x,y,p,bg,sub,face):
     sx0,sy0,sx1,sy1=sub; fx0,fy0,fx1,fy1=face; sh=sy1-sy0
@@ -127,14 +128,20 @@ def broad_pass(strokes,im,phase,bg,sub,face,rng,step,length,width,blur,opacity,u
             q=p[x,y]; r=region(x,y,q,bg,sub,face)
             if r=='background': continue
             a,m=gradient(raw,x,y,w,h)
-            if m<4: a={'headwrap':-.10,'face':1.00,'garment':1.35,'subject':1.10}.get(r,0)
+            base={'headwrap':-.10,'face':1.00,'garment':1.35,'subject':1.10}.get(r,0)
+            if under or phase=='silhouette':
+                a=base+rng.uniform(-.14,.14)
+            else:
+                delta=(a-base+math.pi)%(2*math.pi)-math.pi
+                delta=max(-.55,min(.55,delta))
+                a=base+delta*.45+rng.uniform(-.10,.10)
             groups[r].append((x,y,q,a,m))
     for r in order:
         vals=groups.get(r,[]); rng.shuffle(vals)
         vals.sort(key=lambda t:(int(t[1]//(step*3)),int(t[0]//(step*3))))
         for x,y,q,a,m in vals:
             ln=length*(.78 if m>24 else 1); wd=width*(.82 if m>28 else 1); col=underpaint_color(q) if under else hexcolor(q)
-            add_dry(strokes,phase,x,y,ln,wd,col,opacity,a,rng.randrange(1,2**31-1),('underpaint-' if under else '')+r,24 if under else 18)
+            add_dry(strokes,phase,x,y,ln,wd,col,opacity,a,rng.randrange(1,2**31-1),('underpaint-' if under else '')+r,10 if under else 8)
 
 def face_structure(strokes,im,face,rng):
     p=im.load(); w,h=im.size; fx0,fy0,fx1,fy1=map(int,face); fx0=max(2,fx0);fy0=max(2,fy0);fx1=min(w-2,fx1);fy1=min(h-2,fy1); fw,fh=fx1-fx0,fy1-fy0; cx=(fx0+fx1)/2; tone=hexcolor(p[int(cx),int((fy0+fy1)/2)])
@@ -153,7 +160,9 @@ def detail_points(im,bg,sub,face,count,rng):
     p=im.load();w,h=im.size;fx0,fy0,fx1,fy1=face; arr=[]
     for y in range(2,h-2,3):
         for x in range(2,w-2,3):
-            q=p[x,y];r=region(x,y,q,bg,sub,face)
+            q=p[x,y]
+            if not inside(sub,x,y,18) or not strong_subject_pixel(q,bg): continue
+            r=region(x,y,q,bg,sub,face)
             if r=='background': continue
             a,m=gradient(p,x,y,w,h)
             if m<4: continue
@@ -164,7 +173,9 @@ def finish_points(ref,out,bg,sub,face,count):
     rp=ref.load();op=out.load();w,h=ref.size;fx0,fy0,fx1,fy1=face; arr=[]
     for y in range(2,h-2,3):
         for x in range(2,w-2,3):
-            q=rp[x,y];r=region(x,y,q,bg,sub,face)
+            q=rp[x,y]
+            if not inside(sub,x,y,18) or not strong_subject_pixel(q,bg): continue
+            r=region(x,y,q,bg,sub,face)
             if r=='background': continue
             err=math.sqrt(sum((q[i]-op[x,y][i])**2 for i in range(3))/3); a,m=gradient(rp,x,y,w,h)
             if fx0<=x<=fx1 and fy0<=y<=fy1: err*=1.20
