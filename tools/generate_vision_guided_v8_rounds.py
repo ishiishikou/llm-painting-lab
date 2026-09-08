@@ -18,16 +18,22 @@ def load_plan(path: Path):
     actions = list(plan.get('actions', []))
     review_round = int(plan.get('review_round', 0))
     used = []
+    disabled = set()
     round_dir = path.parent / 'v8-rounds'
     if round_dir.exists():
         for rf in sorted(round_dir.glob('round-*.json')):
             data = json.loads(rf.read_text(encoding='utf-8'))
+            disabled.update(data.get('disable_actions', []))
             actions.extend(data.get('actions', []))
             review_round = max(review_round, int(data.get('review_round', 0)))
             used.append(str(rf))
+    for action in actions:
+        if action.get('id') in disabled:
+            action['enabled'] = False
     plan['actions'] = actions
     plan['review_round'] = review_round
     plan['round_files'] = used
+    plan['disabled_actions'] = sorted(disabled)
     return plan
 
 
@@ -72,6 +78,7 @@ def main():
         'stroke_count': len(strokes),
         'review_round': int(plan.get('review_round', 0)),
         'round_files': plan.get('round_files', []),
+        'disabled_actions': plan.get('disabled_actions', []),
         'enabled_actions': enabled_actions,
         'phase_counts': dict(phases),
         'brush_counts': dict(brushes),
