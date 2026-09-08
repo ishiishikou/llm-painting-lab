@@ -103,7 +103,12 @@ function exportPng() {
 
 async function loadDocument() {
   const params = new URLSearchParams(location.search);
-  const filename = params.get('mode') === 'generated' ? 'strokes.generated.json' : 'strokes.json';
+  const mode = params.get('mode');
+  const filename = mode === 'painterly'
+    ? 'strokes.painterly.json'
+    : mode === 'generated'
+      ? 'strokes.generated.json'
+      : 'strokes.json';
   const response = await fetch(`./${filename}`, { cache: 'no-store' });
   if (!response.ok) throw new Error(`${filename} の読み込みに失敗しました: ${response.status}`);
   return response.json();
