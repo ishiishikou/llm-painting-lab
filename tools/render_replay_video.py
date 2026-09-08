@@ -41,6 +41,22 @@ def find_font(bold=False):
     return None
 
 
+def stroke_midpoint(stroke):
+    return (
+        (stroke.get('x1', stroke.get('x', 0)) + stroke.get('x2', stroke.get('x', 0))) / 2,
+        (stroke.get('y1', stroke.get('y', 0)) + stroke.get('y2', stroke.get('y', 0))) / 2,
+    )
+
+
+def should_draw(stroke, subject_bbox):
+    if stroke.get('phase') == 'composition' or not subject_bbox:
+        return True
+    x, y = stroke_midpoint(stroke)
+    x0, y0, x1, y1 = subject_bbox
+    pad = max(18, min(x1 - x0, y1 - y0) * 0.05)
+    return x0 - pad <= x <= x1 + pad and y0 - pad <= y <= y1 + pad
+
+
 def apply_stroke(draw, stroke):
     rgb = parse_hex(stroke.get('color', '#ffffff'))
     alpha = clamp(stroke.get('opacity', 1.0) * 255)
@@ -87,6 +103,7 @@ def main():
     labels = {p['id']: p.get('label', p['id']) for p in document.get('phases', [])}
     slices = phase_slices(strokes, phase_order)
     total = len(strokes)
+    subject_bbox = document.get('metadata', {}).get('subject_bbox')
 
     canvas_width = document['canvas']['width']
     canvas_height = document['canvas']['height']
@@ -157,20 +174,23 @@ def main():
     current = 0
     for (phase_id, start, end), frames_for_phase in zip(slices, phase_frames):
         while current < start:
-            apply_stroke(painting_draw, strokes[current])
+            if should_draw(strokes[current], subject_bbox):
+                apply_stroke(painting_draw, strokes[current])
             current += 1
         count = end - start
         for frame_index in range(frames_for_phase):
             target = start + max(1, round(count * (frame_index + 1) / frames_for_phase))
             target = min(target, end)
             while current < target:
-                apply_stroke(painting_draw, strokes[current])
+                if should_draw(strokes[current], subject_bbox):
+                    apply_stroke(painting_draw, strokes[current])
                 current += 1
             progress = (current - start) / max(1, count) * 100
             append_frame(current, phase_id, progress, '工程切替' if frame_index == 0 else '')
 
     while current < total:
-        apply_stroke(painting_draw, strokes[current])
+        if should_draw(strokes[current], subject_bbox):
+            apply_stroke(painting_draw, strokes[current])
         current += 1
 
     for _ in range(ending_frames):
@@ -182,6 +202,7 @@ def main():
         'seconds': args.seconds,
         'fps': args.fps,
         'strokes': total,
+        'subject_bbox': subject_bbox,
         'phase_frames': {
             phase: frames for (phase,_,_),frames in zip(slices,phase_frames)
         },
