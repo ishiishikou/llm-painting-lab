@@ -1,7 +1,7 @@
 {
-  "version": 3,
-  "review_round": 5,
-  "frozen_base_phases": ["silhouette", "light_shadow", "face_structure"],
+  "version": 4,
+  "review_round": 6,
+  "frozen_base_phases": ["silhouette", "light_shadow"],
   "accepted_bundle_ids": [],
   "rejected_bundle_ids": [
     "load-88",
@@ -15,26 +15,31 @@
     "passage-0156",
     "passage-0163",
     "passage-0162",
-    "passage-0191"
+    "passage-0191",
+    "passage-0149",
+    "passage-0160",
+    "passage-0151",
+    "passage-0167",
+    "passage-0140",
+    "passage-0161"
   ],
   "intent_card": {
     "region": "face",
     "focus": "eye_band",
-    "goal": "v7の顔構造を土台に、目の周囲へ人なら足す意味がある既存detail passageだけを選び、白い記号ではなく眼窩と眼球の関係が読める方向へ近づける",
-    "candidate_mode": "passage",
+    "goal": "明暗までの土台に対して、v7で実際に成立していた顔構造の線を大きめの一仕事単位で選び、まず目の高さに顔として読める構造を作る",
+    "candidate_mode": "semantic_passage",
     "candidate_count": 6,
-    "preferred_families": ["edge", "structure", "accent"],
-    "source_phases": ["detail"],
-    "min_strokes_per_candidate": 10,
-    "max_strokes_per_candidate": 18,
-    "avoid_brushes": ["mixerBrush", "smudgeBrush"],
+    "source_phases": ["face_structure"],
+    "min_strokes_per_candidate": 60,
+    "max_strokes_per_candidate": 90,
+    "avoid_brushes": ["line", "mixerBrush", "smudgeBrush", "glaze"],
     "avoid": [
       "座標をAIが直接指定する",
-      "候補にあるからという理由だけで線を足す",
-      "白目を明るい棒や点として強調する",
-      "閉じた輪郭記号として目を描く",
-      "顔全体へ均等に細線を増やす"
+      "構図用の中心線・目線・口線を儀式として追加する",
+      "1〜数筆しか変化しない候補を延々と評価する",
+      "白目を記号的に描く",
+      "細線だけで顔を救済する"
     ],
-    "review_note": "round 4の6候補は、A/Dがターバン周辺、Bが襟・肩、Cが額縁付近、Fが顎寄りで目的外。Eだけ目周辺だったが、細い縦線を足しても白い記号感を改善せず、数値もわずかに悪化したため全却下。次はdetail由来かつeye_bandを優先する。"
+    "review_note": "round 5のdetail候補A〜Fはすべて変化が小さく、既にface_structureまで凍結した土台へ同じ場所の細線を足すだけになったため全却下。顔構造自体をAIに座標指定させず、light_shadowを土台としてv7の既存face_structureを60〜90筆のsemantic passageで選ぶ方式へ切り替える。"
   }
 }
