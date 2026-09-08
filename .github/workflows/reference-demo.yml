@@ -1,0 +1,88 @@
+name: reference-demo
+
+on:
+  pull_request:
+  workflow_dispatch:
+
+permissions:
+  contents: read
+
+jobs:
+  render-reference:
+    runs-on: ubuntu-latest
+    timeout-minutes: 10
+    steps:
+      - name: Checkout
+        uses: actions/checkout@v4
+
+      - name: Setup Python
+        uses: actions/setup-python@v5
+        with:
+          python-version: '3.12'
+
+      - name: Install Pillow
+        run: python -m pip install --disable-pip-version-check pillow
+
+      - name: Download public-domain reference
+        shell: bash
+        run: |
+          set -euo pipefail
+          if ! curl -L --fail --retry 3 \
+            'https://www.mauritshuis.nl/media/wlola5to/0670_repro_2.jpg' \
+            -o reference.jpg; then
+            curl -L --fail --retry 3 \
+              'https://upload.wikimedia.org/wikipedia/commons/e/e4/Johannes_Vermeer_-_Girl_with_a_Pearl_Earring_-_670_-_Mauritshuis.jpg' \
+              -o reference.jpg
+          fi
+          test -s reference.jpg
+
+      - name: Generate reference-guided strokes
+        run: |
+          mkdir -p artifact/src
+          python tools/reference_to_strokes.py reference.jpg \
+            --output artifact/strokes.generated.json \
+            --preview artifact/preview.png \
+            --detail 28000
+
+      - name: Verify generated document
+        run: |
+          python - <<'PY'
+          import json
+          from pathlib import Path
+          data = json.loads(Path('artifact/strokes.generated.json').read_text())
+          count = len(data['strokes'])
+          print(f'generated strokes: {count}')
+          if count < 40000:
+              raise SystemExit('ストローク数が想定より少なすぎます')
+          if any('image' in str(stroke).lower() for stroke in data['strokes']):
+              raise SystemExit('生成ストローク内に画像参照が含まれています')
+          PY
+
+      - name: Package replay viewer
+        run: |
+          cp index.html styles.css artifact/
+          cp src/app.js src/brushes.js artifact/src/
+          cp strokes.json artifact/strokes.json
+          gzip -k artifact/strokes.generated.json
+          cat > artifact/README.txt <<'TXT'
+          参照画像ガイド描画の成果物です。
+
+          preview.png:
+            GitHub Actions 上で生成した完成プレビュー。
+
+          strokes.generated.json:
+            Canvas が再生する順序付きストロークデータ。
+            完成画像を Canvas に貼り付ける方式ではありません。
+
+          再生方法:
+            このフォルダを HTTP サーバーで公開し、
+            /?mode=generated を開いてください。
+          TXT
+
+      - name: Upload demo artifact
+        uses: actions/upload-artifact@v4
+        with:
+          name: reference-guided-demo
+          path: artifact/
+          if-no-files-found: error
+          retention-days: 14
