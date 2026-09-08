@@ -43,8 +43,10 @@ jobs:
             --output artifact/strokes.generated.json \
             --preview artifact/preview.png \
             --metrics artifact/metrics.json \
-            --detail 28000 \
-            --repair 20000
+            --width 864 \
+            --height 1024 \
+            --detail 24000 \
+            --repair 18000
 
       - name: Verify generated document and repair improvement
         run: |
@@ -78,10 +80,10 @@ jobs:
           cp strokes.json artifact/strokes.json
           gzip -k artifact/strokes.generated.json
           cat > artifact/README.txt <<'TXT'
-          参照画像ガイド描画の成果物です。
+          原画に近いキャンバス比率を使った参照画像ガイド描画の成果物です。
 
           preview.png:
-            GitHub Actions 上で生成した完成プレビュー。
+            864x1024 で生成した完成プレビュー。
 
           strokes.generated.json:
             Canvas が再生する順序付きストロークデータ。
@@ -89,7 +91,6 @@ jobs:
 
           metrics.json:
             初期描画 → 残差修正1 → 残差修正2 の品質指標。
-            参照画像との MAE / RMSE / PSNR / エッジ誤差を記録します。
 
           再生方法:
             このフォルダを HTTP サーバーで公開し、
