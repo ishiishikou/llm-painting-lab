@@ -1,6 +1,6 @@
 {
-  "version": 7,
-  "review_round": 11,
+  "version": 8,
+  "review_round": 12,
   "frozen_base_phases": ["silhouette", "light_shadow"],
   "accepted_bundle_ids": [
     "semantic-eye_band-3189-75",
@@ -27,30 +27,31 @@
     }
   ],
   "rejected_bundle_ids": [
-    "semantic-eye_band-5589-24",
-    "semantic-eye_band-8106-24",
-    "semantic-eye_band-6272-24",
-    "semantic-eye_band-6968-24",
-    "semantic-eye_band-9620-24",
-    "semantic-eye_band-7034-24"
+    "semantic-whole_face-2491-210",
+    "semantic-whole_face-3237-210",
+    "semantic-whole_face-4746-210",
+    "semantic-whole_face-3516-210",
+    "semantic-whole_face-5181-210",
+    "semantic-whole_face-3020-210"
   ],
   "intent_card": {
     "region": "face",
     "focus": "whole_face",
-    "goal": "既に採用した目・鼻・口周辺の顔構造を保持しつつ、v7で実際に使われた顔構造ストロークを大きめの一仕事単位で足し、細部へ行く前に顔全体を立体として成立させる",
+    "goal": "既存v7の顔構造から、単独でも線として破綻しにくいvariableBrushだけを使い、顔の主要面を追加する。dryBrushの擦れ跡を局所passageとして切り出して黒い傷にしない",
     "candidate_mode": "semantic_passage",
     "candidate_count": 6,
     "source_phases": ["face_structure"],
-    "min_strokes_per_candidate": 180,
-    "max_strokes_per_candidate": 240,
-    "avoid_brushes": ["line", "mixerBrush", "smudgeBrush", "glaze"],
+    "allow_brushes": ["variableBrush"],
+    "min_strokes_per_candidate": 70,
+    "max_strokes_per_candidate": 110,
+    "avoid_brushes": ["line", "mixerBrush", "smudgeBrush", "glaze", "dryBrush"],
     "avoid": [
       "座標をAIが直接指定する",
-      "採用済みストロークを候補で再度上塗りする",
-      "白目や口を記号的な細線で完成させようとする",
-      "細部工程へ早く進む",
-      "候補が出たからという理由だけで採用する"
+      "採用済みストロークを再度上塗りする",
+      "dryBrushを局所的な黒い擦れとして足す",
+      "細部工程へ進む前に顔の主要面を諦める",
+      "数値だけで候補を選ぶ"
     ],
-    "review_note": "round 10のdetail候補A〜Fはすべて長さ約5.4px・幅2.2pxの短いvariableBrush 24本で、Bは目付近に粒状の斑点を作り、Eは変化がほぼ見えず、他は鼻・口・耳側など目的外だったため全却下。detailで救済する前にface_structure自体を十分成立させる。accepted_passagesはsource_stroke_idsを正として保持し、今後の候補は採用済み線と重複させない。"
+    "review_note": "round 11の210筆候補はMAE自体は改善したが、A/Dは頬・顎へ暗い擦れ跡、B/Fはターバン側へ筋状の汚れ、C/Eは顔外側へ過度に作用した。主因は各候補の大半がdryBrushだったこと。6候補すべて却下し、これまで比較的きれいに扱えたvariableBrushの既存線だけを候補資産として使う。"
   }
 }
