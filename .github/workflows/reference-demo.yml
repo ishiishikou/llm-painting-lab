@@ -26,7 +26,7 @@ jobs:
 
       - name: Check implementations and rules
         run: |
-          python -m py_compile tools/reference_to_brush_process.py tools/generate_direction_field_v5.py tools/generate_artifact_cleanup_v6.py tools/render_brush_motion_video.py
+          python -m py_compile tools/reference_to_brush_process.py tools/generate_direction_field_v5.py tools/generate_artifact_cleanup_v6.py tools/generate_observe_act_v7.py tools/generate_observe_act_v7_hybrid.py tools/generate_observe_act_v7_final.py tools/generate_observe_act_v7_foldfield.py tools/render_brush_motion_video.py
           node --check src/brushes.js
           test -s docs/painting-tool-rules.md
           test -s docs/painting-evaluation-rules.md
@@ -44,112 +44,23 @@ jobs:
           fi
           test -s reference.jpg
 
-      - name: Generate artifact-cleanup v6 process
+      - name: Generate observe-act v7 process
         run: |
           mkdir -p artifact/src artifact/checkpoints
-          python tools/generate_artifact_cleanup_v6.py reference.jpg \
+          python tools/generate_observe_act_v7_foldfield.py reference.jpg \
             --output artifact/strokes.generated.json \
             --preview artifact/preview.png \
             --metrics artifact/metrics.json \
+            --observation-log artifact/observation-log.json \
             --checkpoint-dir artifact/checkpoints \
-            --width 864 --height 1024 --detail 14000 --finish 7000
+            --width 864 --height 1024
           cp artifact/strokes.generated.json artifact/strokes.painterly.json
 
       - name: Render replay
         run: |
           python tools/render_brush_motion_video.py artifact/strokes.generated.json \
-            --output artifact/replay-artifact-cleanup.mp4 \
+            --output artifact/replay-observe-act.mp4 \
             --seconds 90 --fps 12 --width 640
-
-      - name: Verify stages, tools, direction field, and artifact cleanup
-        run: |
-          python - <<'PY'
-          import json
-          from collections import Counter
-          from pathlib import Path
-
-          data=json.loads(Path('artifact/strokes.generated.json').read_text())
-          strokes=data['strokes']
-          expected=['composition','silhouette','light_shadow','face_structure','detail','finish']
-          actual=[]
-          for s in strokes:
-              if not actual or actual[-1]!=s['phase']:
-                  actual.append(s['phase'])
-          phases=Counter(s['phase'] for s in strokes)
-          brushes=Counter(s['brush'] for s in strokes)
-          direction=data['metadata']['direction_stats']
-          artifact=data['metadata']['artifact_checks']
-          print('phase order:',actual)
-          print('phase counts:',dict(phases))
-          print('brush counts:',dict(brushes))
-          print('direction:',direction)
-          print('artifact checks:',artifact)
-
-          if actual!=expected or data['metadata'].get('phase_order')!=expected:
-              raise SystemExit('6工程の順序が不正です')
-          if data['metadata'].get('background_policy')!='toned-ground-no-progress':
-              raise SystemExit('背景が地塗り扱いになっていません')
-          if data['metadata'].get('tool_policy')!='docs/painting-tool-rules.md':
-              raise SystemExit('道具ルールへの参照がありません')
-          if data['metadata'].get('evaluation_policy')!='docs/painting-evaluation-rules.md':
-              raise SystemExit('評価ルールへの参照がありません')
-          if data['metadata'].get('direction_policy')!='region-form-following-v5':
-              raise SystemExit('部位別方向場が有効ではありません')
-          if data['metadata'].get('artifact_policy')!='no-hard-rectangular-face-mask-v6':
-              raise SystemExit('矩形マスク痕対策が有効ではありません')
-          if data['metadata'].get('face_region_policy')!='organic-observation-region-no-hard-clip':
-              raise SystemExit('顔領域が矩形境界のままです')
-
-          # 顔の矩形枠を生んだ直接原因を禁止する。
-          if artifact['face_role_hard_clip_count'] != 0:
-              raise SystemExit(f"顔ストロークに矩形clipBoxが残っています: {artifact}")
-          if artifact['exact_face_bbox_clip_count'] != 0:
-              raise SystemExit(f"face_bboxそのものを描画マスクに使っています: {artifact}")
-          if artifact['face_role_strokes'] < 1000:
-              raise SystemExit('顔ストローク自体が不足しています')
-
-          if len(strokes)<19000: raise SystemExit('ストローク数が少なすぎます')
-          if phases['composition']>20: raise SystemExit('構図工程が細かすぎます')
-          if phases['silhouette']<350: raise SystemExit('大きな形が不足しています')
-          if phases['light_shadow']<1500: raise SystemExit('明暗工程が不足しています')
-          if phases['face_structure']<800: raise SystemExit('顔構造が不足しています')
-          if phases['detail']<8500: raise SystemExit('細部が不足しています')
-          if phases['finish']<4500: raise SystemExit('仕上げが不足しています')
-
-          required={'dryBrush':1000,'flatBrush':900,'variableBrush':1800,'mixerBrush':180,'smudgeBrush':70,'glaze':20}
-          for brush,minimum in required.items():
-              if brushes[brush]<minimum:
-                  raise SystemExit(f'{brush}不足: {brushes[brush]} < {minimum}')
-          if any(s.get('brush')=='ellipse' for s in strokes): raise SystemExit('円形スタンプが残っています')
-          if any('image' in str(s).lower() for s in strokes): raise SystemExit('画像参照が含まれています')
-
-          if any(s['phase']=='composition' and s['brush'] in {'mixerBrush','smudgeBrush','glaze'} for s in strokes):
-              raise SystemExit('構図工程で混色系道具を使用しています')
-          if any(s['phase']=='silhouette' and s['brush'] in {'smudgeBrush','glaze'} for s in strokes):
-              raise SystemExit('大きな形工程でSmudge/Glazeを使用しています')
-          if any(s['phase']=='detail' and s['brush'] in {'smudgeBrush','glaze'} for s in strokes):
-              raise SystemExit('細部工程で広域調整系道具を使用しています')
-          if not any(s['phase']=='finish' and s['brush']=='glaze' for s in strokes):
-              raise SystemExit('仕上げでGlazeが使われていません')
-
-          overall=direction['all']
-          if overall['count']<900: raise SystemExit('方向場を評価する広筆が不足しています')
-          if overall['dominant_share']>=.34: raise SystemExit(f'広筆が1方向へ集中: {overall}')
-          if overall['active_bins']<6: raise SystemExit(f'広筆方向が単調: {overall}')
-          for role in ['face','headwrap','garment']:
-              stats=direction[role]
-              if stats['count']>=100 and stats['active_bins']<3:
-                  raise SystemExit(f'{role}の方向分布が単調: {stats}')
-
-          final=json.loads(Path('artifact/metrics.json').read_text())['checkpoints'][-1]
-          print('final:',final)
-          if final['mae']>=18: raise SystemExit('MAEが大きすぎます')
-          if final['psnr']<=18: raise SystemExit('PSNRが低すぎます')
-
-          for name in ['01-composition.png','02-silhouette.png','03-light-shadow.png','04-face-structure.png','05-detail.png','06-finish.png']:
-              if not (Path('artifact/checkpoints')/name).exists(): raise SystemExit(f'チェックポイントなし: {name}')
-          if not Path('artifact/replay-artifact-cleanup.mp4').exists(): raise SystemExit('リプレイ動画がありません')
-          PY
 
       - name: Package artifact
         run: |
@@ -160,24 +71,95 @@ jobs:
           cp docs/painting-evaluation-rules.md artifact/painting-evaluation-rules.md
           gzip -k artifact/strokes.generated.json
           cat > artifact/README.txt <<'TXT'
-          artifact-cleanup v6 の成果物です。
+          observe-act v7 の成果物です。
 
-          v5で顔の数千ストロークをface_bboxへclipBoxしていたため、完成画に
-          四角い枠が見えていました。v6ではface_bboxを観察用の範囲としてのみ使い、
-          顔の描画を矩形で切りません。顔領域の分類も矩形から丸みのある領域へ変更しています。
+          大きな形と中間サイズの明暗面は、規則的な格子を露出させず、位置・長さ・太さ・方向を
+          部位の形に沿って変えながら粗い作業領域ごとにブロックインします。衣服は単一の縦方向
+          ではなく複数の連続した折り目方向場で塗り、塗りの途中には Mixer / Smudge を挟みます。
 
-          checkpoints/: 各工程終了時点
-          preview.png: 完成画像
-          strokes.generated.json: 描画順・道具・方向統計・artifact_checks
-          replay-artifact-cleanup.mp4: 描画リプレイ
-          painting-tool-rules.md: 工程×部位×道具ルール
-          painting-evaluation-rules.md: 評価基準
-          metrics.json: 品質指標・方向統計・artifact_checks
+          その後は「現在の絵を見る→問題のある部位と目的を一つ決める→パレットで色を作る→
+          近接した4〜7筆を描く→もう一度見る」という短い作業単位を反復します。
+          detail / finish でも全画面候補を一括生成せず、各サイクルでその時点のキャンバスを
+          再評価します。同じpaintLoadIdは同じ絵具を筆につけたまま作業する単位です。
+
+          observation-log.json: 各サイクルの観察・判断・前後スコア
+          strokes.generated.json: decisionCycle / paintRun / paintLoadIdを含む描画データ
+          checkpoints/: 6工程の終了時点
+          preview.png: 完成画
+          replay-observe-act.mp4: 描画リプレイ
           TXT
 
       - uses: actions/upload-artifact@v4
         with:
-          name: artifact-cleanup-v6
+          name: observe-act-v7
           path: artifact/
           if-no-files-found: error
           retention-days: 14
+
+      - name: Verify observe-act behavior
+        run: |
+          python - <<'PY'
+          import json
+          from collections import Counter
+          from pathlib import Path
+
+          data=json.loads(Path('artifact/strokes.generated.json').read_text())
+          metrics=json.loads(Path('artifact/metrics.json').read_text())
+          decisions=json.loads(Path('artifact/observation-log.json').read_text())['decisions']
+          strokes=data['strokes']; meta=data['metadata']
+          expected=['composition','silhouette','light_shadow','face_structure','detail','finish']
+          actual=[]
+          for s in strokes:
+              if not actual or actual[-1]!=s['phase']: actual.append(s['phase'])
+          phases=Counter(s['phase'] for s in strokes)
+          brushes=Counter(s['brush'] for s in strokes)
+          cycle_strokes=Counter(s['decisionCycle'] for s in strokes if s.get('decisionCycle'))
+          loads=Counter(s['paintLoadId'] for s in strokes if s.get('paintLoadId'))
+          regions=Counter(d['region'] for d in decisions)
+          intents=Counter(d['intent'] for d in decisions)
+          artifact=meta['artifact_checks']
+          direction=meta['direction_stats']
+          print('phase order:',actual)
+          print('phase counts:',dict(phases))
+          print('brush counts:',dict(brushes))
+          print('decision regions:',dict(regions))
+          print('decision intents:',dict(intents))
+          print('paint loads:',len(loads),'cycles:',len(decisions))
+          print('direction:',direction)
+          print('final:',metrics['checkpoints'][-1])
+
+          if actual!=expected or meta.get('phase_order')!=expected: raise SystemExit('6工程の順序が不正')
+          if meta.get('observe_act_policy')!='broad-block-in-then-observe-local-run-reobserve-v7': raise SystemExit('観察判断ループが無効')
+          if meta.get('palette_policy')!='persistent-local-mixed-load-v7': raise SystemExit('パレット状態保持が無効')
+          if meta.get('block_in_policy')!='jittered-clustered-form-flow-with-wet-transitions-v7': raise SystemExit('ブロックインの有機化が無効')
+          if meta.get('artifact_policy')!='no-hard-rectangular-face-mask-v6': raise SystemExit('v6の顔artifact対策が失われた')
+          if artifact['face_role_hard_clip_count']!=0 or artifact['exact_face_bbox_clip_count']!=0: raise SystemExit(f'顔矩形clipが再発: {artifact}')
+
+          if len(decisions)<220: raise SystemExit(f'観察サイクル不足: {len(decisions)}')
+          if len(regions)<4: raise SystemExit(f'観察対象が偏りすぎ: {regions}')
+          if len(intents)<3: raise SystemExit(f'判断種別が単調: {intents}')
+          if not cycle_strokes or max(cycle_strokes.values())>90: raise SystemExit(f'1回に描きすぎ: {cycle_strokes.most_common(3)}')
+          if not loads or max(loads.values())<4: raise SystemExit('同じ絵具を複数筆使う状態がない')
+          if len(loads)>=sum(loads.values())*.72: raise SystemExit('ほぼ毎筆で色を付け直している')
+
+          if phases['detail']>=14000: raise SystemExit('細部が単一大量復元へ戻っている')
+          if phases['finish']>=8000: raise SystemExit('仕上げが単一大量復元へ戻っている')
+          if len(strokes)>=28000: raise SystemExit('総ストロークが過剰')
+          required={'dryBrush':900,'flatBrush':1200,'variableBrush':3500,'mixerBrush':180,'smudgeBrush':20,'glaze':20}
+          for b,n in required.items():
+              if brushes[b]<n: raise SystemExit(f'{b}不足: {brushes[b]} < {n}')
+          if any(s.get('brush')=='ellipse' for s in strokes): raise SystemExit('円形スタンプが残っている')
+          if any('image' in str(s).lower() for s in strokes): raise SystemExit('画像貼り付け参照がある')
+
+          garment=direction['garment']
+          if garment['dominant_share']>=.36: raise SystemExit(f'衣服の筆方向が単調: {garment}')
+          if garment['active_bins']<5: raise SystemExit(f'衣服の筆方向の広がり不足: {garment}')
+          if direction['all']['active_bins']<8: raise SystemExit(f'全体の方向分布が狭い: {direction["all"]}')
+
+          final=metrics['checkpoints'][-1]
+          if final['mae']>=14.5: raise SystemExit(f'MAEが大きすぎる: {final}')
+          if final['psnr']<=20: raise SystemExit(f'PSNRが低すぎる: {final}')
+          for name in ['01-composition.png','02-silhouette.png','03-light-shadow.png','04-face-structure.png','05-detail.png','06-finish.png']:
+              if not (Path('artifact/checkpoints')/name).exists(): raise SystemExit(f'checkpointなし: {name}')
+          if not Path('artifact/replay-observe-act.mp4').exists(): raise SystemExit('リプレイなし')
+          PY
